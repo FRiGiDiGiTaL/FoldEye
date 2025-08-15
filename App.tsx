@@ -61,6 +61,56 @@ const parseInstructions = (text: string): string[] => {
   return newInstructionsArray;
 };
 
+const formatInstructionsText = (text: string): string => {
+  const lines = text.split('\n');
+  const formattedLines: string[] = [];
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip comments and empty lines
+    if (trimmedLine.startsWith('#') || trimmedLine.startsWith('PAGE') || trimmedLine === '') {
+      formattedLines.push(line);
+      continue;
+    }
+    
+    const lineRegex = /^\s*(\d+(?:-\d+)?(?:,\s*\d+(?:-\d+)?)*)\s+([0-9.,\s]+)/;
+    const match = trimmedLine.match(lineRegex);
+    
+    if (!match) {
+      formattedLines.push(line);
+      continue;
+    }
+    
+    const pageSpec = match[1];
+    const measurements = match[2].trim().replace(/,\s*$/, '');
+    
+    // Split measurements and format them
+    const measurementParts = measurements.split(',').map(m => m.trim());
+    
+    // Calculate the indent for measurements (page spec + some spaces)
+    const measurementIndent = ' '.repeat(12);
+    
+    // If line would be too long, format with proper indentation
+    const baseLine = `${pageSpec.padEnd(11)} ${measurementParts.join(', ')}`;
+    if (baseLine.length > 80 && measurementParts.length > 1) {
+      // Take first few measurements on the first line
+      const firstLineCount = Math.max(1, Math.floor(measurementParts.length * 0.7));
+      const firstLineMeasurements = measurementParts.slice(0, firstLineCount);
+      const remainingMeasurements = measurementParts.slice(firstLineCount);
+      
+      const firstLine = `${pageSpec.padEnd(11)} ${firstLineMeasurements.join(', ')},`;
+      const secondLine = `${measurementIndent}${remainingMeasurements.join(', ')}`;
+      
+      formattedLines.push(firstLine);
+      formattedLines.push(secondLine);
+    } else {
+      formattedLines.push(`${pageSpec.padEnd(11)} ${measurementParts.join(', ')}`);
+    }
+  }
+  
+  return formattedLines.join('\n');
+};
 
 const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
@@ -74,14 +124,13 @@ const App: React.FC = () => {
 21-22        0.5, 8.4, 8.5, 10.7, 10.9, 20.5`;
   
   const [pageData, setPageData] = useState<PageData>({
-    widthCm: 21,
-    heightCm: 29.7,
-    paddingTopCm: 2,
-    paddingBottomCm: 2,
-    instructionsText: initialInstructionsText,
-    parsedInstructions: parseInstructions(initialInstructionsText),
-    currentPage: 16, // Start on page 17 (index 16)
-  });
+  heightCm: 29.7,
+  paddingTopCm: 2,
+  paddingBottomCm: 2,
+  instructionsText: initialInstructionsText,
+  parsedInstructions: parseInstructions(initialInstructionsText),
+  currentPage: 16, // Start on page 17 (index 16)
+});
 
   const [calibrationData, setCalibrationData] = useState<CalibrationData>({
     pixelsPerCm: null,
@@ -110,7 +159,8 @@ const App: React.FC = () => {
   }, [pageData.heightCm]);
 
   const handleInstructionsTextChange = useCallback((text: string) => {
-    const newParsedInstructions = parseInstructions(text);
+    const formattedText = formatInstructionsText(text);
+    const newParsedInstructions = parseInstructions(formattedText);
     setPageData(prev => {
       let newCurrentPage = prev.currentPage;
       if (newCurrentPage >= newParsedInstructions.length || newParsedInstructions[newCurrentPage] === '') {
@@ -119,7 +169,7 @@ const App: React.FC = () => {
       }
       return {
         ...prev,
-        instructionsText: text,
+        instructionsText: formattedText,
         parsedInstructions: newParsedInstructions,
         currentPage: newCurrentPage,
       };
