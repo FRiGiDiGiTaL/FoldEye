@@ -209,7 +209,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               // Determine mark style based on whether it's active or not
               const isActiveMark = !markNavigation.showAllMarks && index === markNavigation.currentMarkIndex;
               const markColor = isActiveMark ? "rgba(255, 255, 0, 1)" : "rgba(255, 0, 127, 1)";
-              const markWidth = isActiveMark ? "3" : "1.5";
+              const markWidth = isActiveMark ? "2" : "1";
               const markLength = isActiveMark ? 25 : 15;
               
               return (
