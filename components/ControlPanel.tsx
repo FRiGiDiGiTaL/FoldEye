@@ -133,7 +133,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }
 
   return (
-    <aside className="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0 shadow-lg h-1/2 md:h-full">
+    <aside className="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0 shadow-lg max-h-[50vh] md:max-h-full">
       <div className="flex items-center mb-4">
         <RulerIcon className="w-8 h-8 mr-3 text-blue-400" />
         <h1 className="text-2xl font-bold text-white">BookfoldAR</h1>
@@ -215,7 +215,31 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
           {isCameraActive && !calibrationData.pixelsPerCm && (
             <button
-              onClick={handleCalibrate}
+              onClick={() => {
+                if (pageData.heightCm > 0) {
+                  // Calculate pixels per cm based on current video dimensions
+                  // This needs to match the CameraView calculation
+                  const viewWidth = window.innerWidth;
+                  const viewHeight = window.innerHeight;
+                  const maxHeight = viewHeight * 0.8;
+                  const maxWidth = viewWidth * 0.7;
+                  
+                  const pageAspectRatio = pageData.widthCm / pageData.heightCm;
+                  
+                  let videoHeight = maxHeight;
+                  let videoWidth = videoHeight * pageAspectRatio;
+                  
+                  if (videoWidth > maxWidth) {
+                    videoWidth = maxWidth;
+                    videoHeight = videoWidth / pageAspectRatio;
+                  }
+                  
+                  const newPixelsPerCm = videoHeight / pageData.heightCm;
+                  setCalibrationData({ pixelsPerCm: newPixelsPerCm });
+                  setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels. Video represents ${pageData.heightCm}×${pageData.widthCm}cm page.`);
+                }
+                onCalibrate();
+              }}
               className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors mb-3"
             >
               Calibrate
@@ -350,10 +374,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               onChange={handleInstructionsChange}
               rows={6}
               className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-              placeholder={`# Page numbers can be single or a range, e.g.,
-1-2  0.1, 0.5, 1.0, 10.0
-3     0.2, 0.8, 1.2, 10.7
-...`}
             />
           </InputGroup>
           

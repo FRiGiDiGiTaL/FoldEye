@@ -307,10 +307,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
               Distance between guides = {videoDimensions.height.toFixed(0)} pixels
             </text>
 
-            {/* Calibrate button */}
+            {/* Calibrate button - positioned to the left of video */}
             <rect
-              x={viewDimensions.width / 2 - 60}
-              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 30}
+              x={Math.max(10, videoLayout.videoRect.left - 130)}
+              y={viewDimensions.height / 2 - 20}
               width="120"
               height="40"
               rx="8"
@@ -322,8 +322,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
             />
             
             <text
-              x={viewDimensions.width / 2}
-              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 55}
+              x={Math.max(70, videoLayout.videoRect.left - 70)}
+              y={viewDimensions.height / 2 + 5}
               fill="white"
               fontSize="14"
               fontWeight="bold"
@@ -373,12 +373,13 @@ export const CameraView: React.FC<CameraViewProps> = ({
                   />
                   {isActiveMark && (
                     <text
-                      x={markX + markLength + 10}
+                      x={markX - markLength - 10}
                       y={yPos + 5}
                       fill={markColor}
                       fontSize="14"
                       fontFamily="monospace"
                       fontWeight="bold"
+                      textAnchor="end"
                     >
                       {markCm.toFixed(1)}cm
                     </text>

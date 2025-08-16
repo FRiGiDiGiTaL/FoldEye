@@ -150,7 +150,7 @@ const App: React.FC = () => {
   }, []);
   
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-gray-100 overflow-hidden">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-900 text-gray-100">
       <ControlPanel
         isCameraActive={isCameraActive}
         setIsCameraActive={setIsCameraActive}
@@ -168,7 +168,7 @@ const App: React.FC = () => {
         handleMarkNavigation={handleMarkNavigation}
         onCalibrate={handleCalibrate}
       />
-      <main className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
+      <main className="flex-1 bg-black flex items-center justify-center relative min-h-[50vh] md:min-h-screen">
         <CameraView
           isCameraActive={isCameraActive}
           calibrationData={calibrationData}
