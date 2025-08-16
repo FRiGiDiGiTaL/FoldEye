@@ -70,10 +70,10 @@ const App: React.FC = () => {
 21-22        0.5, 8.4, 8.5, 10.7, 10.9, 20.5`;
   
   const [pageData, setPageData] = useState<PageData>({
-    heightCm: 29.7,
-    widthCm: 21.0, // Standard A4 width
-    paddingTopCm: 2,
-    paddingBottomCm: 2,
+    heightCm: 0, // Removed placeholder value
+    widthCm: 0, // Removed placeholder value
+    paddingTopCm: 0, // Removed placeholder value
+    paddingBottomCm: 0, // Removed placeholder value
     instructionsText: initialInstructionsText,
     parsedInstructions: parseInstructions(initialInstructionsText),
     currentPage: 16, // Start on page 17 (index 16)
@@ -150,7 +150,7 @@ const App: React.FC = () => {
   }, []);
   
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-gray-100">
+    <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-gray-100 overflow-hidden">
       <ControlPanel
         isCameraActive={isCameraActive}
         setIsCameraActive={setIsCameraActive}
@@ -166,6 +166,7 @@ const App: React.FC = () => {
         markNavigation={markNavigation}
         currentMarksCm={currentMarksCm}
         handleMarkNavigation={handleMarkNavigation}
+        onCalibrate={handleCalibrate}
       />
       <main className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
         <CameraView

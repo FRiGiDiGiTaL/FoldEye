@@ -2,21 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AR Book Folding Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>BookfoldAR - Augmented Reality Book Folding Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       html, body {
         height: 100%;
         margin: 0;
         padding: 0;
-        overflow: hidden; /* Prevent body scrolling for a stable mobile viewport */
+        /* Remove overflow hidden to allow proper mobile scrolling */
+        overflow: auto;
       }
       #root {
         height: 100%;
+        min-height: 100vh; /* Ensure full viewport height */
       }
+      /* Improve mobile scrolling behavior */
       body {
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Ensure mobile viewport handles properly */
+      @media (max-width: 768px) {
+        #root {
+          min-height: 100vh;
+          min-height: -webkit-fill-available; /* iOS Safari support */
+        }
       }
     </style>
   <script type="importmap">

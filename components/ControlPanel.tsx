@@ -17,6 +17,7 @@ interface ControlPanelProps {
   markNavigation: MarkNavigation;
   currentMarksCm: number[];
   handleMarkNavigation: (action: 'next' | 'prev' | 'toggleAll') => void;
+  onCalibrate: () => void;
 }
 
 const InputGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -29,18 +30,32 @@ const InputGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ la
 const NumberInput: React.FC<{ 
   value: number; 
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; 
-  unit: string; 
-}> = ({ value, onChange, unit }) => (
+  unit: string;
+  placeholder?: string;
+}> = ({ value, onChange, unit, placeholder }) => (
   <div className="flex items-center">
     <input
       type="number"
-      value={value}
+      value={value || ''}
       onChange={onChange}
+      placeholder={placeholder}
       className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       step="0.1"
       min="0.1"
     />
     <span className="ml-2 text-gray-400">{unit}</span>
+  </div>
+);
+
+const StepTitle: React.FC<{ stepNumber: number; title: string; instruction: string }> = ({ stepNumber, title, instruction }) => (
+  <div className="mb-3">
+    <h2 className="text-xl font-bold text-yellow-300 mb-2 border-b border-gray-700 pb-2 flex items-center">
+      <RulerIcon className="w-5 h-5 mr-2"/>
+      {title} - <span className="text-orange-400 ml-1">STEP {stepNumber}</span>
+    </h2>
+    <p className="text-sm text-blue-300 italic bg-gray-700/30 p-2 rounded-md">
+      {instruction}
+    </p>
   </div>
 );
 
@@ -59,13 +74,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   markNavigation,
   currentMarksCm,
   handleMarkNavigation,
+  onCalibrate,
 }) => {
   const handlePageDataChange = (field: keyof PageData, value: number) => {
     setPageData(prev => ({ ...prev, [field]: value }));
-    if (calibrationData.pixelsPerCm) {
-      setCalibrationData({ pixelsPerCm: null });
-      setStatusMessage("Page dimensions changed. Please re-calibrate.");
-    }
+    // Remove the re-calibration notification
   };
 
   const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -103,6 +116,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setStatusMessage("Calibration reset. Position book and calibrate again.");
   };
 
+  const handleCalibrate = () => {
+    if (pageData.heightCm > 0) {
+      setStatusMessage("Calibration complete! Position book and use cut marks.");
+    }
+    onCalibrate();
+  };
+
   const firstMarkedPageIndex = pageData.parsedInstructions.findIndex(p => !!p);
   let lastMarkedPageIndex = -1;
   for (let i = pageData.parsedInstructions.length - 1; i >= 0; i--) {
@@ -116,7 +136,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     <aside className="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0 shadow-lg h-1/2 md:h-full">
       <div className="flex items-center mb-4">
         <RulerIcon className="w-8 h-8 mr-3 text-blue-400" />
-        <h1 className="text-2xl font-bold text-white">AR Book Folding</h1>
+        <h1 className="text-2xl font-bold text-white">BookfoldAR</h1>
       </div>
       
       {/* Status display */}
@@ -125,39 +145,44 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div className="space-y-6">
-        {/* Book Dimensions - moved to top */}
+        {/* Book Dimensions - STEP 1 */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2 flex items-center">
-            <RulerIcon className="w-5 h-5 mr-2"/>
-            Book Dimensions
-          </h2>
+          <StepTitle 
+            stepNumber={1} 
+            title="Book Dimensions" 
+            instruction="Enter your book's physical measurements to set up the camera view proportions."
+          />
 
           <InputGroup label="Page Height">
             <NumberInput 
               value={pageData.heightCm} 
               onChange={(e) => handlePageDataChange('heightCm', parseFloat(e.target.value) || 0)} 
-              unit="cm" 
+              unit="cm"
+              placeholder="Enter height"
             />
           </InputGroup>
-          <InputGroup label="Page Width">
+          <InputGroup label="Page Width (visual aesthetics only - value required)">
             <NumberInput 
               value={pageData.widthCm} 
               onChange={(e) => handlePageDataChange('widthCm', parseFloat(e.target.value) || 0)} 
-              unit="cm" 
+              unit="cm"
+              placeholder="Enter width"
             />
           </InputGroup>
           <InputGroup label="Top Padding">
             <NumberInput 
               value={pageData.paddingTopCm} 
               onChange={(e) => handlePageDataChange('paddingTopCm', parseFloat(e.target.value) || 0)} 
-              unit="cm" 
+              unit="cm"
+              placeholder="Enter top padding"
             />
           </InputGroup>
           <InputGroup label="Bottom Padding">
             <NumberInput 
               value={pageData.paddingBottomCm} 
               onChange={(e) => handlePageDataChange('paddingBottomCm', parseFloat(e.target.value) || 0)} 
-              unit="cm" 
+              unit="cm"
+              placeholder="Enter bottom padding"
             />
           </InputGroup>
           
@@ -170,12 +195,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </div>
 
-        {/* Camera Controls */}
+        {/* Camera Controls - STEP 2 */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2 flex items-center">
-            <CameraIcon className="w-5 h-5 mr-2"/>
-            Camera & Calibration
-          </h2>
+          <StepTitle 
+            stepNumber={2} 
+            title="Camera & Calibration" 
+            instruction="Start the camera, align your book with the corner guides, then calibrate the system."
+          />
           
           <button
             onClick={() => setIsCameraActive(!isCameraActive)}
@@ -186,6 +212,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <CameraIcon className="w-5 h-5 mr-2" />
             {isCameraActive ? 'Stop Camera' : 'Start Camera'}
           </button>
+
+          {isCameraActive && !calibrationData.pixelsPerCm && (
+            <button
+              onClick={handleCalibrate}
+              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors mb-3"
+            >
+              Calibrate
+            </button>
+          )}
 
           {/* Manual zoom control */}
           <div className="mb-3">
@@ -213,11 +248,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </div>
 
-        {/* Page Navigation */}
+        {/* Page Navigation - STEP 3 */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">
-            Page Navigation
-          </h2>
+          <StepTitle 
+            stepNumber={3} 
+            title="Page Navigation" 
+            instruction="Navigate between pages that have fold marks defined in your instructions."
+          />
           <InputGroup label={`Page ${pageData.currentPage + 1} of ${pageData.parsedInstructions.length}`}>
             <div className="flex space-x-2">
               <button 
@@ -300,20 +337,22 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         )}
 
-        {/* Marking Instructions */}
+        {/* Marking Instructions - STEP 4 */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">
-            Marking Instructions
-          </h2>
-          <InputGroup label="Enter marks (e.g., '17-18  7.1, 9.5')">
+          <StepTitle 
+            stepNumber={4} 
+            title="Marking Instructions" 
+            instruction="Define which pages have fold marks and specify the measurements for each mark."
+          />
+          <InputGroup label="Enter Marks (e.g., 1-2  0.1, 0.5, 1.0, 10.0)">
             <textarea
               value={pageData.instructionsText}
               onChange={handleInstructionsChange}
               rows={6}
               className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
               placeholder={`# Page numbers can be single or a range, e.g.,
-17-18  7.1, 9.5, 12.3
-19     7.4, 9.8, 12.7
+1-2  0.1, 0.5, 1.0, 10.0
+3     0.2, 0.8, 1.2, 10.7
 ...`}
             />
           </InputGroup>
