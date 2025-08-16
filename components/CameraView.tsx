@@ -32,15 +32,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   // Calculate video dimensions based on page dimensions
   const videoDimensions = useMemo(() => {
-    if (viewDimensions.height > 0 && viewDimensions.width > 0) {
-      // For mobile, use more of the available space
-      const maxHeight = viewDimensions.height * 0.9;
-      const maxWidth = viewDimensions.width * 0.9;
-      
-      // If no page dimensions are set, use a default aspect ratio
-      if (pageData.heightCm <= 0 || pageData.widthCm <= 0) {
-        return { width: maxWidth, height: maxHeight * 0.8 };
-      }
+    if (viewDimensions.height > 0 && pageData.heightCm > 0 && pageData.widthCm > 0) {
+      // Use a base scale that fits within the container
+      const maxHeight = viewDimensions.height * 0.8;
+      const maxWidth = viewDimensions.width * 0.7;
       
       // Calculate scale based on page aspect ratio
       const pageAspectRatio = pageData.widthCm / pageData.heightCm;
@@ -57,8 +52,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
       
       return { width: videoWidth, height: videoHeight };
     }
-    // Fallback dimensions
-    return { width: 320, height: 240 };
+    return { width: viewDimensions.width * 0.6, height: viewDimensions.height * 0.6 };
   }, [viewDimensions, pageData.heightCm, pageData.widthCm]);
 
   // Set up camera
@@ -313,10 +307,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
               Distance between guides = {videoDimensions.height.toFixed(0)} pixels
             </text>
 
-            {/* Calibrate button - positioned to the left of video */}
+            {/* Calibrate button */}
             <rect
-              x={Math.max(10, videoLayout.videoRect.left - 130)}
-              y={viewDimensions.height / 2 - 20}
+              x={viewDimensions.width / 2 - 60}
+              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 30}
               width="120"
               height="40"
               rx="8"
@@ -328,8 +322,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
             />
             
             <text
-              x={Math.max(70, videoLayout.videoRect.left - 70)}
-              y={viewDimensions.height / 2 + 5}
+              x={viewDimensions.width / 2}
+              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 55}
               fill="white"
               fontSize="14"
               fontWeight="bold"
