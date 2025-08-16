@@ -38,45 +38,68 @@ export const CameraView: React.FC<CameraViewProps> = ({
     setDebugLogs(prev => [...prev.slice(-4), message]); // Keep last 5 logs
   };
 
-  // Set up camera
+  // ---- CAMERA SETUP ----
+  const startStream = async (constraints: MediaStreamConstraints, label: string) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      addDebugLog(`✓ Camera stream obtained (${label})`);
+      addDebugLog(`✓ Stream tracks: ${stream.getTracks().length}`);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        addDebugLog('✓ Stream assigned to video');
+
+        videoRef.current.onloadedmetadata = () => {
+          addDebugLog('✓ Video metadata loaded');
+          addDebugLog(`Video: ${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight}`);
+
+          videoRef.current?.play()
+            .then(() => {
+              addDebugLog(`✓ Video playback started (${label})`);
+              setVideoReady(true);
+              setStatusMessage("Camera ready! Enter book dimensions and calibrate.");
+            })
+            .catch(err => {
+              addDebugLog(`❌ video.play() failed: ${err.message}`);
+              setVideoError("Could not start video playback.");
+            });
+        };
+      }
+      return true;
+    } catch (err: any) {
+      addDebugLog(`❌ Camera (${label}) failed: ${err.message}`);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (isCameraActive) {
       setVideoError(null);
       setVideoReady(false);
-      
-      navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      })
-        .then(stream => {
-          addDebugLog('✓ Camera stream obtained');
-          addDebugLog(`✓ Stream tracks: ${stream.getTracks().length}`);
-          if (videoRef.current) {
-            addDebugLog('✓ Setting stream to video element');
-            videoRef.current.srcObject = stream;
-            addDebugLog('✓ Stream assigned to video');
-            videoRef.current.onloadedmetadata = () => {
-              addDebugLog('✓ Video metadata loaded');
-              addDebugLog(`Video: ${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight}`);
-              addDebugLog(`Element: ${videoRef.current?.offsetWidth}x${videoRef.current?.offsetHeight}`);
-              setVideoReady(true);
-              setStatusMessage("Camera ready! Enter book dimensions and calibrate.");
-            };
-            videoRef.current.onerror = (e) => {
-              console.error('Video error:', e);
-              setVideoError('Video playback error');
-            };
+
+      if (window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+        addDebugLog("⚠️ getUserMedia requires HTTPS on mobile!");
+      }
+
+      (async () => {
+        // Try environment first, then fallback to user camera
+        const envOk = await startStream({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        }, "environment");
+
+        if (!envOk) {
+          addDebugLog("➡️ Falling back to user (front) camera...");
+          const userOk = await startStream({
+            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
+          }, "user");
+
+          if (!userOk) {
+            setVideoError("Camera error: Could not access front or back camera.");
+            setStatusMessage("Camera error. Please check permissions.");
           }
-        })
-        .catch(err => {
-          console.error("Camera error:", err);
-          addDebugLog(`❌ Camera error: ${err.message}`);
-          setVideoError(`Camera error: ${err.message}`);
-          setStatusMessage("Camera error. Please check permissions.");
-        });
+        }
+      })();
+
     } else {
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
@@ -87,30 +110,27 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [isCameraActive, setStatusMessage]);
 
-  // Track container dimensions
+  // ---- CONTAINER SIZE ----
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    
+
     const updateSize = () => {
       const rect = container.getBoundingClientRect();
-      console.log('Container size:', rect.width, 'x', rect.height);
       setContainerSize({ width: rect.width, height: rect.height });
     };
-    
+
     const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
-    updateSize(); // Initial update
-    
+    updateSize();
+
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Handle calibration
+  // ---- CALIBRATION ----
   const handleCalibrate = useCallback(() => {
     if (pageData.heightCm > 0 && videoRef.current) {
       const videoHeight = videoRef.current.offsetHeight;
-      console.log('Calibrating with video height:', videoHeight, 'for book height:', pageData.heightCm);
-      
       if (videoHeight > 0) {
         const newPixelsPerCm = videoHeight / pageData.heightCm;
         setCalibrationData({ pixelsPerCm: newPixelsPerCm });
@@ -124,28 +144,23 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [pageData.heightCm, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Calculate simple video dimensions
+  // ---- VIDEO STYLE ----
   const getVideoStyle = () => {
     const isMobile = containerSize.width < 768;
     const padding = isMobile ? 20 : 40;
-    
     const maxWidth = containerSize.width - padding;
     const maxHeight = containerSize.height - padding;
-    
-    // Simple calculation - just fit within container
+
     let width = Math.min(maxWidth, isMobile ? 300 : 500);
     let height = Math.min(maxHeight, isMobile ? 400 : 600);
-    
-    // Maintain aspect ratio if needed
-    const aspectRatio = 4/3; // Standard video aspect ratio
+
+    const aspectRatio = 4 / 3;
     if (width / height > aspectRatio) {
       width = height * aspectRatio;
     } else {
       height = width / aspectRatio;
     }
-    
-    console.log('Video style:', { width, height });
-    
+
     return {
       width: `${width}px`,
       height: `${height}px`,
@@ -158,11 +173,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
     <div
       ref={containerRef}
       className="w-full h-full relative bg-gray-800 overflow-hidden"
-      style={{ 
-        height: '100%',        // Use full parent height
-        minHeight: '400px',    // Mobile minimum
-        width: '100%'          // Explicit width
-      }}
+      style={{ height: '100%', minHeight: '100vh', width: '100%' }}
     >
       {/* Debug info */}
       <div className="absolute top-2 left-2 bg-black/90 text-white text-xs p-2 rounded z-50 max-w-xs">
@@ -177,7 +188,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </div>
       </div>
 
-      {/* Simple centered video */}
+      {/* Video feed */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         {isCameraActive ? (
           <div className="relative">
@@ -189,7 +200,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               className="bg-gray-700 rounded-lg border-2 border-gray-500"
               style={getVideoStyle()}
             />
-            
+
             {/* Loading overlay */}
             {!videoReady && !videoError && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-600/90 rounded-lg">
@@ -199,7 +210,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Error overlay */}
             {videoError && (
               <div className="absolute inset-0 flex items-center justify-center bg-red-600/90 rounded-lg">
@@ -209,18 +220,13 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 </div>
               </div>
             )}
-            
-            {/* Simple calibration guides */}
+
+            {/* Calibration guides */}
             {videoReady && !calibrationData.pixelsPerCm && (
               <div className="absolute inset-0 pointer-events-none">
-                {/* Corner markers */}
                 <div className="absolute top-0 right-0 w-4 h-4 bg-yellow-400 rounded-full -translate-y-2 translate-x-2"></div>
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-yellow-400 rounded-full translate-y-2 translate-x-2"></div>
-                
-                {/* Right edge line */}
                 <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-yellow-400 opacity-60"></div>
-                
-                {/* Instructions */}
                 <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-yellow-400 text-sm font-bold whitespace-nowrap">
                   Align book's right edge
                 </div>
@@ -239,7 +245,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         )}
       </div>
 
-      {/* Simple calibrate button */}
+      {/* Calibrate button */}
       {isCameraActive && videoReady && !calibrationData.pixelsPerCm && (
         <button
           onClick={handleCalibrate}
@@ -250,36 +256,24 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </button>
       )}
 
-      {/* Simple cut marks - only after calibration */}
+      {/* Cut marks */}
       {calibrationData.pixelsPerCm && marksCm.length > 0 && videoReady && (
         <div className="absolute inset-0 pointer-events-none">
           {marksCm.map((markCm, index) => {
-            // Simple mark rendering
             const shouldShow = markNavigation.showAllMarks || index === markNavigation.currentMarkIndex;
             if (!shouldShow) return null;
-            
+
             const isActive = !markNavigation.showAllMarks && index === markNavigation.currentMarkIndex;
             const color = isActive ? '#ffff00' : '#ff007f';
-            
-            // Simple positioning - relative to the video area
+
             const relativeY = (markCm - pageData.paddingTopCm) / (pageData.heightCm - pageData.paddingTopCm - pageData.paddingBottomCm);
             const topPercent = Math.max(0, Math.min(100, relativeY * 100));
-            
+
             return (
-              <div
-                key={index}
-                className="absolute right-4"
-                style={{ top: `${topPercent}%` }}
-              >
-                <div
-                  className="w-8 h-0.5"
-                  style={{ backgroundColor: color }}
-                ></div>
+              <div key={index} className="absolute right-4" style={{ top: `${topPercent}%` }}>
+                <div className="w-8 h-0.5" style={{ backgroundColor: color }}></div>
                 {isActive && (
-                  <div 
-                    className="text-xs font-mono mt-1"
-                    style={{ color }}
-                  >
+                  <div className="text-xs font-mono mt-1" style={{ color }}>
                     {markCm.toFixed(1)}cm
                   </div>
                 )}
