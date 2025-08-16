@@ -32,10 +32,15 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   // Calculate video dimensions based on page dimensions
   const videoDimensions = useMemo(() => {
-    if (viewDimensions.height > 0 && pageData.heightCm > 0 && pageData.widthCm > 0) {
-      // Use a base scale that fits within the container
-      const maxHeight = viewDimensions.height * 0.8;
-      const maxWidth = viewDimensions.width * 0.7;
+    if (viewDimensions.height > 0 && viewDimensions.width > 0) {
+      // For mobile, use more of the available space
+      const maxHeight = viewDimensions.height * 0.9;
+      const maxWidth = viewDimensions.width * 0.9;
+      
+      // If no page dimensions are set, use a default aspect ratio
+      if (pageData.heightCm <= 0 || pageData.widthCm <= 0) {
+        return { width: maxWidth, height: maxHeight * 0.8 };
+      }
       
       // Calculate scale based on page aspect ratio
       const pageAspectRatio = pageData.widthCm / pageData.heightCm;
@@ -52,7 +57,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
       
       return { width: videoWidth, height: videoHeight };
     }
-    return { width: viewDimensions.width * 0.6, height: viewDimensions.height * 0.6 };
+    // Fallback dimensions
+    return { width: 320, height: 240 };
   }, [viewDimensions, pageData.heightCm, pageData.widthCm]);
 
   // Set up camera
