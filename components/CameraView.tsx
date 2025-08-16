@@ -373,13 +373,12 @@ export const CameraView: React.FC<CameraViewProps> = ({
                   />
                   {isActiveMark && (
                     <text
-                      x={markX - markLength - 10}
+                      x={Math.min(markX + markLength + 10, viewDimensions.width - 80)}
                       y={yPos + 5}
                       fill={markColor}
                       fontSize="14"
                       fontFamily="monospace"
                       fontWeight="bold"
-                      textAnchor="end"
                     >
                       {markCm.toFixed(1)}cm
                     </text>
