@@ -215,31 +215,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
           {isCameraActive && !calibrationData.pixelsPerCm && (
             <button
-              onClick={() => {
-                if (pageData.heightCm > 0) {
-                  // Calculate pixels per cm based on current video dimensions
-                  // This needs to match the CameraView calculation
-                  const viewWidth = window.innerWidth;
-                  const viewHeight = window.innerHeight;
-                  const maxHeight = viewHeight * 0.8;
-                  const maxWidth = viewWidth * 0.7;
-                  
-                  const pageAspectRatio = pageData.widthCm / pageData.heightCm;
-                  
-                  let videoHeight = maxHeight;
-                  let videoWidth = videoHeight * pageAspectRatio;
-                  
-                  if (videoWidth > maxWidth) {
-                    videoWidth = maxWidth;
-                    videoHeight = videoWidth / pageAspectRatio;
-                  }
-                  
-                  const newPixelsPerCm = videoHeight / pageData.heightCm;
-                  setCalibrationData({ pixelsPerCm: newPixelsPerCm });
-                  setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels. Video represents ${pageData.heightCm}×${pageData.widthCm}cm page.`);
-                }
-                onCalibrate();
-              }}
+              onClick={onCalibrate}
               className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors mb-3"
             >
               Calibrate
