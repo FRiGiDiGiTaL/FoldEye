@@ -70,13 +70,13 @@ const App: React.FC = () => {
 21-22        0.5, 8.4, 8.5, 10.7, 10.9, 20.5`;
   
   const [pageData, setPageData] = useState<PageData>({
-    heightCm: 0, // Removed placeholder value
-    widthCm: 0, // Removed placeholder value
-    paddingTopCm: 0, // Removed placeholder value
-    paddingBottomCm: 0, // Removed placeholder value
+    heightCm: 0,
+    widthCm: 0,
+    paddingTopCm: 0,
+    paddingBottomCm: 0,
     instructionsText: initialInstructionsText,
     parsedInstructions: parseInstructions(initialInstructionsText),
-    currentPage: 16, // Start on page 17 (index 16)
+    currentPage: 16,
   });
 
   const [calibrationData, setCalibrationData] = useState<CalibrationData>({
@@ -150,7 +150,15 @@ const App: React.FC = () => {
   }, []);
   
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-gray-100 md:flex-row md:min-h-screen">
+    <div 
+      className="flex flex-col bg-gray-900 text-gray-100 md:flex-row" 
+      style={{ 
+        height: '100vh',           // Explicit viewport height
+        minHeight: '100vh',        // Minimum fallback
+        width: '100vw',            // Full viewport width
+        overflow: 'hidden'         // Prevent scrollbars
+      }}
+    >
       <ControlPanel
         isCameraActive={isCameraActive}
         setIsCameraActive={setIsCameraActive}
@@ -168,7 +176,14 @@ const App: React.FC = () => {
         handleMarkNavigation={handleMarkNavigation}
         onCalibrate={handleCalibrate}
       />
-      <main className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
+      <main 
+        className="flex-1 bg-black flex items-center justify-center relative"
+        style={{
+          height: '100%',           // Take full available height
+          minHeight: '400px',       // Mobile fallback minimum
+          overflow: 'hidden'        // Prevent internal scrolling
+        }}
+      >
         <CameraView
           isCameraActive={isCameraActive}
           calibrationData={calibrationData}

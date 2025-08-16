@@ -158,7 +158,11 @@ export const CameraView: React.FC<CameraViewProps> = ({
     <div
       ref={containerRef}
       className="w-full h-full relative bg-gray-800 overflow-hidden"
-      style={{ minHeight: '300px' }}
+      style={{ 
+        height: '100%',        // Use full parent height
+        minHeight: '400px',    // Mobile minimum
+        width: '100%'          // Explicit width
+      }}
     >
       {/* Debug info */}
       <div className="absolute top-2 left-2 bg-black/90 text-white text-xs p-2 rounded z-50 max-w-xs">
