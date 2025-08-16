@@ -133,7 +133,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }
 
   return (
-    <aside className="w-full md:w-96 bg-gray-800 p-4 overflow-y-auto flex-shrink-0 shadow-lg max-h-[50vh] md:max-h-full">
+    <aside className="w-full bg-gray-800 p-4 overflow-y-auto flex-shrink-0 shadow-lg md:w-96 md:h-full">
       <div className="flex items-center mb-4">
         <RulerIcon className="w-8 h-8 mr-3 text-blue-400" />
         <h1 className="text-2xl font-bold text-white">BookfoldAR</h1>
@@ -159,14 +159,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               onChange={(e) => handlePageDataChange('heightCm', parseFloat(e.target.value) || 0)} 
               unit="cm"
               placeholder="Enter height"
-            />
-          </InputGroup>
-          <InputGroup label="Page Width (visual aesthetics only - value required)">
-            <NumberInput 
-              value={pageData.widthCm} 
-              onChange={(e) => handlePageDataChange('widthCm', parseFloat(e.target.value) || 0)} 
-              unit="cm"
-              placeholder="Enter width"
             />
           </InputGroup>
           <InputGroup label="Top Padding">

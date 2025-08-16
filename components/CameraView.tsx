@@ -32,28 +32,25 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   // Calculate video dimensions based on page dimensions
   const videoDimensions = useMemo(() => {
-    if (viewDimensions.height > 0 && pageData.heightCm > 0 && pageData.widthCm > 0) {
-      // Use a base scale that fits within the container
-      const maxHeight = viewDimensions.height * 0.8;
-      const maxWidth = viewDimensions.width * 0.7;
-      
-      // Calculate scale based on page aspect ratio
-      const pageAspectRatio = pageData.widthCm / pageData.heightCm;
-      
-      // Try fitting by height first
-      let videoHeight = maxHeight;
-      let videoWidth = videoHeight * pageAspectRatio;
-      
-      // If too wide, fit by width instead
-      if (videoWidth > maxWidth) {
-        videoWidth = maxWidth;
-        videoHeight = videoWidth / pageAspectRatio;
-      }
-      
-      return { width: videoWidth, height: videoHeight };
+    // Always provide reasonable dimensions regardless of page settings
+    const safeWidth = Math.max(viewDimensions.width, 300);
+    const safeHeight = Math.max(viewDimensions.height, 200);
+    
+    // Always use A4-like aspect ratio for consistency
+    const aspectRatio = 21.0 / 29.7; // Standard A4 width/height ratio
+    const maxHeight = safeHeight * 0.8;
+    const maxWidth = safeWidth * 0.7;
+    
+    let videoHeight = maxHeight;
+    let videoWidth = videoHeight * aspectRatio;
+    
+    if (videoWidth > maxWidth) {
+      videoWidth = maxWidth;
+      videoHeight = videoWidth / aspectRatio;
     }
-    return { width: viewDimensions.width * 0.6, height: viewDimensions.height * 0.6 };
-  }, [viewDimensions, pageData.heightCm, pageData.widthCm]);
+    
+    return { width: videoWidth, height: videoHeight };
+  }, [viewDimensions]);
 
   // Set up camera
   useEffect(() => {
@@ -101,7 +98,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
     if (pageData.heightCm > 0 && videoDimensions.height > 0) {
       const newPixelsPerCm = videoDimensions.height / pageData.heightCm;
       setCalibrationData({ pixelsPerCm: newPixelsPerCm });
-      setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels. Video represents ${pageData.heightCm}×${pageData.widthCm}cm page.`);
+      setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels. Video represents ${pageData.heightCm}cm height.`);
     }
     onCalibrate();
   }, [pageData.heightCm, pageData.widthCm, videoDimensions.height, setCalibrationData, setStatusMessage, onCalibrate]);
@@ -143,12 +140,14 @@ export const CameraView: React.FC<CameraViewProps> = ({
           ref={videoRef} 
           autoPlay 
           playsInline 
-          className="object-cover"
+          muted
+          className="bg-gray-700"
           style={{
-            width: isCameraActive ? `${videoDimensions.width}px` : '100%',
-            height: isCameraActive ? `${videoDimensions.height}px` : '100%',
-            maxWidth: '100%',
-            maxHeight: '100%',
+            width: `${videoDimensions.width}px`,
+            height: `${videoDimensions.height}px`,
+            maxWidth: '95vw',
+            maxHeight: '70vh',
+            objectFit: 'cover',
             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
             transformOrigin: 'center center'
           }}
@@ -291,7 +290,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               strokeWidth="3"
               paintOrder="stroke"
             >
-              Page: {pageData.heightCm}cm × {pageData.widthCm}cm
+              Page: {pageData.heightCm}cm height
             </text>
             
             <text
@@ -307,10 +306,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
               Distance between guides = {videoDimensions.height.toFixed(0)} pixels
             </text>
 
-            {/* Calibrate button */}
+            {/* Calibrate button - positioned to the left of video */}
             <rect
-              x={viewDimensions.width / 2 - 60}
-              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 30}
+              x={Math.max(10, videoLayout.videoRect.left - 130)}
+              y={viewDimensions.height / 2 - 20}
               width="120"
               height="40"
               rx="8"
@@ -322,8 +321,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
             />
             
             <text
-              x={viewDimensions.width / 2}
-              y={videoLayout.videoRect.top + videoLayout.videoRect.height + 55}
+              x={Math.max(70, videoLayout.videoRect.left - 70)}
+              y={viewDimensions.height / 2 + 5}
               fill="white"
               fontSize="14"
               fontWeight="bold"
@@ -373,12 +372,13 @@ export const CameraView: React.FC<CameraViewProps> = ({
                   />
                   {isActiveMark && (
                     <text
-                      x={Math.min(markX + markLength + 10, viewDimensions.width - 80)}
+                      x={markX - markLength - 10}
                       y={yPos + 5}
                       fill={markColor}
                       fontSize="14"
                       fontFamily="monospace"
                       fontWeight="bold"
+                      textAnchor="end"
                     >
                       {markCm.toFixed(1)}cm
                     </text>
@@ -393,7 +393,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
       {!isCameraActive && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
           <svg className="w-24 h-24 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.55a2 2 0 01.35 3.39l-1.5 1.5-3.39-3.39-3.4 3.4-1.5-1.5a2 2 0 013.39-.35L15 10zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <p className="text-gray-400">Camera is off</p>
         </div>
