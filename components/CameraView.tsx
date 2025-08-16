@@ -32,24 +32,43 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   // Calculate video dimensions based on page dimensions
   const videoDimensions = useMemo(() => {
-    // Always provide reasonable dimensions regardless of page settings
-    const safeWidth = Math.max(viewDimensions.width, 300);
-    const safeHeight = Math.max(viewDimensions.height, 200);
+    // Handle mobile vs desktop differently
+    const isMobile = viewDimensions.width < 768;
+    const safeWidth = viewDimensions.width; // Changed: removed Math.max
+    const safeHeight = viewDimensions.height; // Changed: removed Math.max
     
     // Always use A4-like aspect ratio for consistency
     const aspectRatio = 21.0 / 29.7; // Standard A4 width/height ratio
-    const maxHeight = safeHeight * 0.8;
-    const maxWidth = safeWidth * 0.7;
     
-    let videoHeight = maxHeight;
-    let videoWidth = videoHeight * aspectRatio;
-    
-    if (videoWidth > maxWidth) {
-      videoWidth = maxWidth;
-      videoHeight = videoWidth / aspectRatio;
+    if (isMobile) {
+      // Mobile: be more aggressive with sizing
+      const maxHeight = safeHeight * 0.95;
+      const maxWidth = safeWidth * 0.95;
+      
+      let videoHeight = maxHeight;
+      let videoWidth = videoHeight * aspectRatio;
+      
+      if (videoWidth > maxWidth) {
+        videoWidth = maxWidth;
+        videoHeight = videoWidth / aspectRatio;
+      }
+      
+      return { width: videoWidth, height: videoHeight };
+    } else {
+      // Desktop: original sizing
+      const maxHeight = safeHeight * 0.8;
+      const maxWidth = safeWidth * 0.7;
+      
+      let videoHeight = maxHeight;
+      let videoWidth = videoHeight * aspectRatio;
+      
+      if (videoWidth > maxWidth) {
+        videoWidth = maxWidth;
+        videoHeight = videoWidth / aspectRatio;
+      }
+      
+      return { width: videoWidth, height: videoHeight };
     }
-    
-    return { width: videoWidth, height: videoHeight };
   }, [viewDimensions]);
 
   // Set up camera
@@ -133,20 +152,23 @@ export const CameraView: React.FC<CameraViewProps> = ({
     <div
       ref={containerRef}
       className="w-full h-full relative overflow-hidden bg-gray-800"
+      style={{ minHeight: '320px' }} // Added fallback height for mobile
     >
       {/* Video with forced proportional scaling */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center p-2">
         <video 
           ref={videoRef} 
           autoPlay 
           playsInline 
           muted
-          className="bg-gray-700"
+          className="bg-gray-700 rounded-lg"
           style={{
             width: `${videoDimensions.width}px`,
             height: `${videoDimensions.height}px`,
-            maxWidth: '95vw',
-            maxHeight: '70vh',
+            minWidth: '0px', // Changed from 200px
+            minHeight: '0px', // Changed from 150px
+            maxWidth: '100%',
+            maxHeight: '100%',
             objectFit: 'cover',
             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
             transformOrigin: 'center center'
