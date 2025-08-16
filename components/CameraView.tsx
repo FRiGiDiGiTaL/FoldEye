@@ -124,34 +124,28 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [pageData.heightCm, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Calculate simple video dimensions
+  // Calculate simple video dimensions - use viewport units
   const getVideoStyle = () => {
-    const isMobile = containerSize.width < 768;
-    const padding = isMobile ? 20 : 40;
+    // Use viewport units to bypass container sizing issues
+    const isMobile = window.innerWidth < 768;
     
-    const maxWidth = containerSize.width - padding;
-    const maxHeight = containerSize.height - padding;
-    
-    // Simple calculation - just fit within container
-    let width = Math.min(maxWidth, isMobile ? 300 : 500);
-    let height = Math.min(maxHeight, isMobile ? 400 : 600);
-    
-    // Maintain aspect ratio if needed
-    const aspectRatio = 4/3; // Standard video aspect ratio
-    if (width / height > aspectRatio) {
-      width = height * aspectRatio;
+    if (isMobile) {
+      return {
+        width: '70vw',      // 70% of viewport width
+        height: '52.5vw',   // Maintain 4:3 ratio (70 * 3/4)
+        maxWidth: '300px',  // Cap at reasonable size
+        maxHeight: '225px',
+        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+        transformOrigin: 'center center'
+      };
     } else {
-      height = width / aspectRatio;
+      return {
+        width: '400px',     // Fixed desktop width  
+        height: '300px',    // Fixed desktop height
+        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+        transformOrigin: 'center center'
+      };
     }
-    
-    console.log('Video style:', { width, height });
-    
-    return {
-      width: `${width}px`,
-      height: `${height}px`,
-      transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-      transformOrigin: 'center center'
-    };
   };
 
   return (
@@ -177,8 +171,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </div>
       </div>
 
-      {/* Simple centered video */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      {/* Simple centered video with viewport sizing */}
+      <div 
+        className="absolute inset-0 flex items-center justify-center p-4"
+      >
         {isCameraActive ? (
           <div className="relative">
             <video
