@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from '../types';
 
 interface CameraViewProps {
@@ -28,62 +28,22 @@ export const CameraView: React.FC<CameraViewProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [viewDimensions, setViewDimensions] = useState({ width: 0, height: 0 });
   const [videoReady, setVideoReady] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
-  // Calculate video dimensions based on page dimensions
-  const videoDimensions = useMemo(() => {
-    // Ensure we have valid view dimensions
-    if (viewDimensions.width === 0 || viewDimensions.height === 0) {
-      return { width: 320, height: 240 }; // Fallback dimensions
-    }
-
-    // Handle mobile vs desktop differently
-    const isMobile = viewDimensions.width < 768;
-    const safeWidth = Math.max(320, viewDimensions.width);
-    const safeHeight = Math.max(240, viewDimensions.height);
-    
-    // Always use A4-like aspect ratio for consistency
-    const aspectRatio = 21.0 / 29.7; // Standard A4 width/height ratio
-    
-    if (isMobile) {
-      // Mobile: be more conservative with sizing and add more padding
-      const maxHeight = safeHeight * 0.7; // Reduced from 0.95
-      const maxWidth = safeWidth * 0.85; // Reduced from 0.95
-      
-      let videoHeight = maxHeight;
-      let videoWidth = videoHeight * aspectRatio;
-      
-      if (videoWidth > maxWidth) {
-        videoWidth = maxWidth;
-        videoHeight = videoWidth / aspectRatio;
-      }
-      
-      // Ensure minimum viable size on mobile
-      videoWidth = Math.max(280, videoWidth);
-      videoHeight = Math.max(200, videoHeight);
-      
-      return { width: videoWidth, height: videoHeight };
-    } else {
-      // Desktop: original sizing
-      const maxHeight = safeHeight * 0.8;
-      const maxWidth = safeWidth * 0.7;
-      
-      let videoHeight = maxHeight;
-      let videoWidth = videoHeight * aspectRatio;
-      
-      if (videoWidth > maxWidth) {
-        videoWidth = maxWidth;
-        videoHeight = videoWidth / aspectRatio;
-      }
-      
-      return { width: videoWidth, height: videoHeight };
-    }
-  }, [viewDimensions]);
+  const addDebugLog = (message: string) => {
+    console.log(message);
+    setDebugLogs(prev => [...prev.slice(-4), message]); // Keep last 5 logs
+  };
 
   // Set up camera
   useEffect(() => {
     if (isCameraActive) {
+      setVideoError(null);
+      setVideoReady(false);
+      
       navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'environment',
@@ -92,15 +52,29 @@ export const CameraView: React.FC<CameraViewProps> = ({
         } 
       })
         .then(stream => {
+          addDebugLog('✓ Camera stream obtained');
+          addDebugLog(`✓ Stream tracks: ${stream.getTracks().length}`);
           if (videoRef.current) {
+            addDebugLog('✓ Setting stream to video element');
             videoRef.current.srcObject = stream;
+            addDebugLog('✓ Stream assigned to video');
             videoRef.current.onloadedmetadata = () => {
+              addDebugLog('✓ Video metadata loaded');
+              addDebugLog(`Video: ${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight}`);
+              addDebugLog(`Element: ${videoRef.current?.offsetWidth}x${videoRef.current?.offsetHeight}`);
               setVideoReady(true);
+              setStatusMessage("Camera ready! Enter book dimensions and calibrate.");
+            };
+            videoRef.current.onerror = (e) => {
+              console.error('Video error:', e);
+              setVideoError('Video playback error');
             };
           }
         })
         .catch(err => {
           console.error("Camera error:", err);
+          addDebugLog(`❌ Camera error: ${err.message}`);
+          setVideoError(`Camera error: ${err.message}`);
           setStatusMessage("Camera error. Please check permissions.");
         });
     } else {
@@ -109,6 +83,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         videoRef.current.srcObject = null;
       }
       setVideoReady(false);
+      setVideoError(null);
     }
   }, [isCameraActive, setStatusMessage]);
 
@@ -117,328 +92,196 @@ export const CameraView: React.FC<CameraViewProps> = ({
     const container = containerRef.current;
     if (!container) return;
     
-    const updateDimensions = () => {
+    const updateSize = () => {
       const rect = container.getBoundingClientRect();
-      setViewDimensions({ width: rect.width, height: rect.height });
+      console.log('Container size:', rect.width, 'x', rect.height);
+      setContainerSize({ width: rect.width, height: rect.height });
     };
     
-    const resizeObserver = new ResizeObserver(updateDimensions);
+    const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
-    
-    // Initial dimension update
-    updateDimensions();
+    updateSize(); // Initial update
     
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Handle calibration - calculate pixels per cm based on guide positions
+  // Handle calibration
   const handleCalibrate = useCallback(() => {
-    if (pageData.heightCm > 0 && videoDimensions.height > 0) {
-      const newPixelsPerCm = videoDimensions.height / pageData.heightCm;
-      setCalibrationData({ pixelsPerCm: newPixelsPerCm });
-      setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels. Video represents ${pageData.heightCm}cm height.`);
+    if (pageData.heightCm > 0 && videoRef.current) {
+      const videoHeight = videoRef.current.offsetHeight;
+      console.log('Calibrating with video height:', videoHeight, 'for book height:', pageData.heightCm);
+      
+      if (videoHeight > 0) {
+        const newPixelsPerCm = videoHeight / pageData.heightCm;
+        setCalibrationData({ pixelsPerCm: newPixelsPerCm });
+        setStatusMessage(`Calibrated! 1cm = ${newPixelsPerCm.toFixed(2)} pixels.`);
+        onCalibrate();
+      } else {
+        setStatusMessage("Error: Could not determine video dimensions for calibration.");
+      }
+    } else {
+      setStatusMessage("Please enter book height before calibrating.");
     }
-    onCalibrate();
-  }, [pageData.heightCm, videoDimensions.height, setCalibrationData, setStatusMessage, onCalibrate]);
+  }, [pageData.heightCm, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Calculate video position and corner guide positions
-  const videoLayout = useMemo(() => {
-    const centerX = viewDimensions.width / 2;
-    const centerY = viewDimensions.height / 2;
+  // Calculate simple video dimensions
+  const getVideoStyle = () => {
+    const isMobile = containerSize.width < 768;
+    const padding = isMobile ? 20 : 40;
     
-    const videoRect = {
-      left: centerX - videoDimensions.width / 2,
-      top: centerY - videoDimensions.height / 2,
-      width: videoDimensions.width,
-      height: videoDimensions.height
+    const maxWidth = containerSize.width - padding;
+    const maxHeight = containerSize.height - padding;
+    
+    // Simple calculation - just fit within container
+    let width = Math.min(maxWidth, isMobile ? 300 : 500);
+    let height = Math.min(maxHeight, isMobile ? 400 : 600);
+    
+    // Maintain aspect ratio if needed
+    const aspectRatio = 4/3; // Standard video aspect ratio
+    if (width / height > aspectRatio) {
+      width = height * aspectRatio;
+    } else {
+      height = width / aspectRatio;
+    }
+    
+    console.log('Video style:', { width, height });
+    
+    return {
+      width: `${width}px`,
+      height: `${height}px`,
+      transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+      transformOrigin: 'center center'
     };
-    
-    // Corner guides at right edge of video
-    const topRightCorner = {
-      x: videoRect.left + videoRect.width,
-      y: videoRect.top
-    };
-    
-    const bottomRightCorner = {
-      x: videoRect.left + videoRect.width,
-      y: videoRect.top + videoRect.height
-    };
-    
-    return { videoRect, topRightCorner, bottomRightCorner };
-  }, [viewDimensions, videoDimensions]);
+  };
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative overflow-hidden bg-gray-800"
-      style={{ minHeight: '400px' }} // Increased minimum height
+      className="w-full h-full relative bg-gray-800 overflow-hidden"
+      style={{ minHeight: '300px' }}
     >
-      {/* Debug info for mobile development (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs p-2 rounded z-50">
-          View: {viewDimensions.width}x{viewDimensions.height}<br/>
-          Video: {videoDimensions.width}x{videoDimensions.height}<br/>
-          Ready: {videoReady ? 'Yes' : 'No'}
-        </div>
-      )}
-
-      {/* Video container with better mobile positioning */}
-      <div className="absolute inset-0 flex items-center justify-center p-2">
-        <div 
-          className="relative bg-gray-700 rounded-lg overflow-hidden"
-          style={{
-            width: `${videoDimensions.width}px`,
-            height: `${videoDimensions.height}px`,
-            minWidth: '280px',
-            minHeight: '200px',
-          }}
-        >
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            muted
-            className="w-full h-full object-cover"
-            style={{
-              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-              transformOrigin: 'center center'
-            }}
-          />
-          
-          {/* Loading indicator when camera is starting */}
-          {isCameraActive && !videoReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-600">
-              <div className="text-white text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                <p>Starting camera...</p>
-              </div>
-            </div>
-          )}
+      {/* Debug info */}
+      <div className="absolute top-2 left-2 bg-black/90 text-white text-xs p-2 rounded z-50 max-w-xs">
+        <div>Container: {containerSize.width}x{containerSize.height}</div>
+        <div>Camera: {isCameraActive ? 'ON' : 'OFF'}</div>
+        <div>Video Ready: {videoReady ? 'YES' : 'NO'}</div>
+        {videoError && <div className="text-red-300">Error: {videoError}</div>}
+        <div className="mt-2 space-y-1">
+          {debugLogs.map((log, i) => (
+            <div key={i} className="text-green-300">{log}</div>
+          ))}
         </div>
       </div>
 
-      {/* Overlay SVG - only show when video is ready */}
-      {videoReady && (
-        <svg className="absolute top-0 left-0 w-full h-full" style={{ pointerEvents: 'none' }}>
-          {/* Calibration guides - only show corner guides when not calibrated */}
-          {isCameraActive && !calibrationData.pixelsPerCm && (
-            <g>
-              {/* Video boundary rectangle for reference */}
-              <rect
-                x={videoLayout.videoRect.left}
-                y={videoLayout.videoRect.top}
-                width={videoLayout.videoRect.width}
-                height={videoLayout.videoRect.height}
-                fill="none"
-                stroke="blue"
-                strokeWidth="2"
-                strokeDasharray="5,5"
-                opacity="0.6"
-              />
-              
-              {/* Top Right Corner Guide */}
-              <g>
-                <circle
-                  cx={videoLayout.topRightCorner.x}
-                  cy={videoLayout.topRightCorner.y}
-                  r="12"
-                  fill="yellow"
-                  stroke="black"
-                  strokeWidth="3"
-                />
-                <text
-                  x={videoLayout.topRightCorner.x + 20}
-                  y={videoLayout.topRightCorner.y - 10}
-                  fill="yellow"
-                  fontSize="12" // Smaller text for mobile
-                  fontWeight="bold"
-                  stroke="black"
-                  strokeWidth="2"
-                  paintOrder="stroke"
-                >
-                  Top Right
-                </text>
-                {/* Crosshair */}
-                <line
-                  x1={videoLayout.topRightCorner.x - 8}
-                  y1={videoLayout.topRightCorner.y}
-                  x2={videoLayout.topRightCorner.x + 8}
-                  y2={videoLayout.topRightCorner.y}
-                  stroke="black"
-                  strokeWidth="2"
-                />
-                <line
-                  x1={videoLayout.topRightCorner.x}
-                  y1={videoLayout.topRightCorner.y - 8}
-                  x2={videoLayout.topRightCorner.x}
-                  y2={videoLayout.topRightCorner.y + 8}
-                  stroke="black"
-                  strokeWidth="2"
-                />
-              </g>
-
-              {/* Bottom Right Corner Guide */}
-              <g>
-                <circle
-                  cx={videoLayout.bottomRightCorner.x}
-                  cy={videoLayout.bottomRightCorner.y}
-                  r="12"
-                  fill="yellow"
-                  stroke="black"
-                  strokeWidth="3"
-                />
-                <text
-                  x={videoLayout.bottomRightCorner.x + 20}
-                  y={videoLayout.bottomRightCorner.y + 20}
-                  fill="yellow"
-                  fontSize="12" // Smaller text for mobile
-                  fontWeight="bold"
-                  stroke="black"
-                  strokeWidth="2"
-                  paintOrder="stroke"
-                >
-                  Bottom Right
-                </text>
-                {/* Crosshair */}
-                <line
-                  x1={videoLayout.bottomRightCorner.x - 8}
-                  y1={videoLayout.bottomRightCorner.y}
-                  x2={videoLayout.bottomRightCorner.x + 8}
-                  y2={videoLayout.bottomRightCorner.y}
-                  stroke="black"
-                  strokeWidth="2"
-                />
-                <line
-                  x1={videoLayout.bottomRightCorner.x}
-                  y1={videoLayout.bottomRightCorner.y - 8}
-                  x2={videoLayout.bottomRightCorner.x}
-                  y2={videoLayout.bottomRightCorner.y + 8}
-                  stroke="black"
-                  strokeWidth="2"
-                />
-              </g>
-
-              {/* Measurement line between corners */}
-              <line
-                x1={videoLayout.topRightCorner.x}
-                y1={videoLayout.topRightCorner.y}
-                x2={videoLayout.bottomRightCorner.x}
-                y2={videoLayout.bottomRightCorner.y}
-                stroke="yellow"
-                strokeWidth="3"
-                opacity="0.8"
-              />
-
-              {/* Instructions - positioned better for mobile */}
-              <text
-                x={viewDimensions.width / 2}
-                y={Math.max(30, videoLayout.videoRect.top - 60)}
-                fill="yellow"
-                fontSize={viewDimensions.width < 768 ? "14" : "18"}
-                fontWeight="bold"
-                textAnchor="middle"
-                stroke="black"
-                strokeWidth="3"
-                paintOrder="stroke"
-              >
-                Align book's right edge with guides
-              </text>
-              
-              <text
-                x={viewDimensions.width / 2}
-                y={Math.max(50, videoLayout.videoRect.top - 40)}
-                fill="white"
-                fontSize={viewDimensions.width < 768 ? "12" : "14"}
-                textAnchor="middle"
-                stroke="black"
-                strokeWidth="2"
-                paintOrder="stroke"
-              >
-                Page: {pageData.heightCm}cm height
-              </text>
-
-
-            </g>
-          )}
-
-          {/* Cut marks */}
-          {calibrationData.pixelsPerCm && marksCm.length > 0 && (
-            <g>
-              {marksCm.map((markCm, index) => {
-                // Filter marks within page bounds
-                if (markCm < pageData.paddingTopCm || markCm > (pageData.heightCm - pageData.paddingBottomCm)) {
-                  return null;
-                }
-
-                // Calculate position relative to video layout
-                const usableHeight = pageData.heightCm - pageData.paddingTopCm - pageData.paddingBottomCm;
-                const relativePosition = (markCm - pageData.paddingTopCm) / usableHeight;
-                const yPos = videoLayout.videoRect.top + (relativePosition * videoLayout.videoRect.height);
+      {/* Simple centered video */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        {isCameraActive ? (
+          <div className="relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="bg-gray-700 rounded-lg border-2 border-gray-500"
+              style={getVideoStyle()}
+            />
+            
+            {/* Loading overlay */}
+            {!videoReady && !videoError && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-600/90 rounded-lg">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p>Starting camera...</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Error overlay */}
+            {videoError && (
+              <div className="absolute inset-0 flex items-center justify-center bg-red-600/90 rounded-lg">
+                <div className="text-white text-center p-4">
+                  <p className="font-bold mb-2">Camera Error</p>
+                  <p className="text-sm">{videoError}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Simple calibration guides */}
+            {videoReady && !calibrationData.pixelsPerCm && (
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Corner markers */}
+                <div className="absolute top-0 right-0 w-4 h-4 bg-yellow-400 rounded-full -translate-y-2 translate-x-2"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-yellow-400 rounded-full translate-y-2 translate-x-2"></div>
                 
-                // Mark visibility logic
-                const shouldRenderMark = markNavigation.showAllMarks || index === markNavigation.currentMarkIndex;
-                if (!shouldRenderMark) return null;
+                {/* Right edge line */}
+                <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-yellow-400 opacity-60"></div>
                 
-                const isActiveMark = !markNavigation.showAllMarks && index === markNavigation.currentMarkIndex;
-                const markColor = isActiveMark ? "#ffff00" : "#ff007f";
-                const markWidth = isActiveMark ? "3" : "2";
-                const markLength = isActiveMark ? 30 : 20;
-                
-                // Position marks on the right side of the video boundary
-                const markX = videoLayout.videoRect.left + videoLayout.videoRect.width + 15;
-                
-                return (
-                  <g key={index}>
-                    <line
-                      x1={markX - markLength}
-                      y1={yPos}
-                      x2={markX + markLength}
-                      y2={yPos}
-                      stroke={markColor}
-                      strokeWidth={markWidth}
-                    />
-                    {isActiveMark && (
-                      <text
-                        x={markX - markLength - 10}
-                        y={yPos + 5}
-                        fill={markColor}
-                        fontSize="12" // Smaller for mobile
-                        fontFamily="monospace"
-                        fontWeight="bold"
-                        textAnchor="end"
-                      >
-                        {markCm.toFixed(1)}cm
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </g>
-          )}
-        </svg>
-      )}
+                {/* Instructions */}
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-yellow-400 text-sm font-bold whitespace-nowrap">
+                  Align book's right edge
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center text-gray-400">
+            <svg className="w-24 h-24 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p>Camera is off</p>
+            <p className="text-xs mt-1">Click "Start Camera" to begin</p>
+          </div>
+        )}
+      </div>
 
-      {/* Calibrate button as proper HTML button - positioned outside SVG */}
-      {isCameraActive && !calibrationData.pixelsPerCm && videoReady && (
+      {/* Simple calibrate button */}
+      {isCameraActive && videoReady && !calibrationData.pixelsPerCm && (
         <button
           onClick={handleCalibrate}
-          className="absolute bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg border-2 border-white shadow-lg transition-colors z-10"
-          style={{
-            left: `${Math.max(10, viewDimensions.width / 2 - 60)}px`,
-            top: `${Math.min(viewDimensions.height - 60, videoLayout.videoRect.top + videoLayout.videoRect.height + 20)}px`,
-          }}
+          disabled={pageData.heightCm <= 0}
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg shadow-lg z-10"
         >
-          Calibrate
+          {pageData.heightCm > 0 ? 'Calibrate Camera' : 'Enter Height First'}
         </button>
       )}
-       
-      {!isCameraActive && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-          <svg className="w-24 h-24 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <p className="text-gray-400">Camera is off</p>
+
+      {/* Simple cut marks - only after calibration */}
+      {calibrationData.pixelsPerCm && marksCm.length > 0 && videoReady && (
+        <div className="absolute inset-0 pointer-events-none">
+          {marksCm.map((markCm, index) => {
+            // Simple mark rendering
+            const shouldShow = markNavigation.showAllMarks || index === markNavigation.currentMarkIndex;
+            if (!shouldShow) return null;
+            
+            const isActive = !markNavigation.showAllMarks && index === markNavigation.currentMarkIndex;
+            const color = isActive ? '#ffff00' : '#ff007f';
+            
+            // Simple positioning - relative to the video area
+            const relativeY = (markCm - pageData.paddingTopCm) / (pageData.heightCm - pageData.paddingTopCm - pageData.paddingBottomCm);
+            const topPercent = Math.max(0, Math.min(100, relativeY * 100));
+            
+            return (
+              <div
+                key={index}
+                className="absolute right-4"
+                style={{ top: `${topPercent}%` }}
+              >
+                <div
+                  className="w-8 h-0.5"
+                  style={{ backgroundColor: color }}
+                ></div>
+                {isActive && (
+                  <div 
+                    className="text-xs font-mono mt-1"
+                    style={{ color }}
+                  >
+                    {markCm.toFixed(1)}cm
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
