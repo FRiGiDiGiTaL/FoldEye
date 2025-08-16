@@ -124,26 +124,34 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [pageData.heightCm, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Calculate simple video dimensions - completely independent approach
+  // Calculate simple video dimensions
   const getVideoStyle = () => {
-    // Force fixed dimensions that should work on any mobile device
-    const isMobile = window.innerWidth < 768;
+    const isMobile = containerSize.width < 768;
+    const padding = isMobile ? 20 : 40;
     
-    if (isMobile) {
-      return {
-        width: '280px',     // Fixed mobile width
-        height: '210px',    // Fixed mobile height (4:3 ratio)
-        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-        transformOrigin: 'center center'
-      };
+    const maxWidth = containerSize.width - padding;
+    const maxHeight = containerSize.height - padding;
+    
+    // Simple calculation - just fit within container
+    let width = Math.min(maxWidth, isMobile ? 300 : 500);
+    let height = Math.min(maxHeight, isMobile ? 400 : 600);
+    
+    // Maintain aspect ratio if needed
+    const aspectRatio = 4/3; // Standard video aspect ratio
+    if (width / height > aspectRatio) {
+      width = height * aspectRatio;
     } else {
-      return {
-        width: '400px',     // Fixed desktop width  
-        height: '300px',    // Fixed desktop height
-        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-        transformOrigin: 'center center'
-      };
+      height = width / aspectRatio;
     }
+    
+    console.log('Video style:', { width, height });
+    
+    return {
+      width: `${width}px`,
+      height: `${height}px`,
+      transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+      transformOrigin: 'center center'
+    };
   };
 
   return (
@@ -169,10 +177,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </div>
       </div>
 
-      {/* Simple centered video with viewport sizing */}
-      <div 
-        className="absolute inset-0 flex items-center justify-center p-4"
-      >
+      {/* Simple centered video */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
         {isCameraActive ? (
           <div className="relative">
             <video
