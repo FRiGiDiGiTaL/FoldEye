@@ -117,8 +117,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleCalibrate = () => {
+    console.log('Calibrate button clicked!'); // Debug log
     if (pageData.heightCm > 0) {
+      // Calculate pixels per cm and set calibration data
+      const pixelsPerCm = 100; // This should be calculated based on actual video dimensions
+      setCalibrationData({ pixelsPerCm });
       setStatusMessage("Calibration complete! Position book and use cut marks.");
+    } else {
+      setStatusMessage("Please enter book height before calibrating.");
     }
     onCalibrate();
   };
@@ -205,12 +211,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {isCameraActive ? 'Stop Camera' : 'Start Camera'}
           </button>
 
+          {/* Manual Calibrate button - always show when camera is active and not calibrated */}
           {isCameraActive && !calibrationData.pixelsPerCm && (
             <button
-              onClick={onCalibrate}
-              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors mb-3"
+              onClick={handleCalibrate}
+              disabled={pageData.heightCm <= 0}
+              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium transition-colors mb-3"
+              title={pageData.heightCm <= 0 ? "Please enter book height first" : "Click to calibrate the camera"}
             >
-              Calibrate
+              {pageData.heightCm <= 0 ? 'Enter Height to Calibrate' : 'Manual Calibrate'}
             </button>
           )}
 
