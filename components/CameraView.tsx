@@ -124,17 +124,15 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [pageData.heightCm, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Calculate simple video dimensions - use viewport units
+  // Calculate simple video dimensions - completely independent approach
   const getVideoStyle = () => {
-    // Use viewport units to bypass container sizing issues
+    // Force fixed dimensions that should work on any mobile device
     const isMobile = window.innerWidth < 768;
     
     if (isMobile) {
       return {
-        width: '70vw',      // 70% of viewport width
-        height: '52.5vw',   // Maintain 4:3 ratio (70 * 3/4)
-        maxWidth: '300px',  // Cap at reasonable size
-        maxHeight: '225px',
+        width: '280px',     // Fixed mobile width
+        height: '210px',    // Fixed mobile height (4:3 ratio)
         transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
         transformOrigin: 'center center'
       };
