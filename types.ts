@@ -1,5 +1,6 @@
 export interface PageData {
   heightCm: number;
+  widthCm: number;  // Added width for proper video sizing
   paddingTopCm: number;
   paddingBottomCm: number;
   instructionsText: string;
