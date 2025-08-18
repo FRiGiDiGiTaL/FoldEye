@@ -17,7 +17,11 @@ interface ControlPanelProps {
   markNavigation: MarkNavigation;
   currentMarksCm: number[];
   handleMarkNavigation: (action: 'next' | 'prev' | 'toggleAll') => void;
+  handleNextPage: () => void;
+  handlePrevPage: () => void;
   onCalibrate: () => void;
+  autoAdvanceEnabled: boolean;
+  setAutoAdvanceEnabled: (enabled: boolean) => void;
 }
 
 const InputGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -74,41 +78,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   markNavigation,
   currentMarksCm,
   handleMarkNavigation,
+  handleNextPage,
+  handlePrevPage,
   onCalibrate,
+  autoAdvanceEnabled,
+  setAutoAdvanceEnabled,
 }) => {
   const handlePageDataChange = (field: keyof PageData, value: number) => {
     setPageData(prev => ({ ...prev, [field]: value }));
-    // Remove the re-calibration notification
   };
 
   const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     handleInstructionsTextChange(e.target.value);
-  };
-  
-  const handleNextPage = () => {
-    setPageData(prev => {
-      for (let i = prev.currentPage + 1; i < prev.parsedInstructions.length; i++) {
-        if (prev.parsedInstructions[i]) {
-          setStatusMessage(`Viewing Page ${i + 1}`);
-          return { ...prev, currentPage: i };
-        }
-      }
-      setStatusMessage(`Already on the last page with marks (${prev.currentPage + 1})`);
-      return prev;
-    });
-  };
-
-  const handlePrevPage = () => {
-    setPageData(prev => {
-      for (let i = prev.currentPage - 1; i >= 0; i--) {
-        if (prev.parsedInstructions[i]) {
-          setStatusMessage(`Viewing Page ${i + 1}`);
-          return { ...prev, currentPage: i };
-        }
-      }
-      setStatusMessage(`Already on the first page with marks (${prev.currentPage + 1})`);
-      return prev;
-    });
   };
   
   const resetCalibration = () => {
@@ -117,10 +98,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleCalibrate = () => {
-    console.log('Calibrate button clicked!'); // Debug log
+    console.log('Calibrate button clicked!');
     if (pageData.heightCm > 0) {
-      // Calculate pixels per cm and set calibration data
-      const pixelsPerCm = 100; // This should be calculated based on actual video dimensions
+      const pixelsPerCm = 100;
       setCalibrationData({ pixelsPerCm });
       setStatusMessage("Calibration complete! Position book and use cut marks.");
     } else {
@@ -211,7 +191,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {isCameraActive ? 'Stop Camera' : 'Start Camera'}
           </button>
 
-          {/* Manual Calibrate button - always show when camera is active and not calibrated */}
+          {/* Manual Calibrate button */}
           {isCameraActive && !calibrationData.pixelsPerCm && (
             <button
               onClick={handleCalibrate}
@@ -256,6 +236,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             title="Page Navigation" 
             instruction="Navigate between pages that have fold marks defined in your instructions."
           />
+          
+          {/* Auto-advance toggle */}
+          <div className="mb-4 p-3 bg-purple-900/30 border border-purple-700 rounded-md">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoAdvanceEnabled}
+                onChange={(e) => setAutoAdvanceEnabled(e.target.checked)}
+                className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              />
+              <div>
+                <div className="text-sm font-medium text-purple-300">Auto Page Advance</div>
+                <div className="text-xs text-gray-400">
+                  Automatically advance to next page when reaching the last mark
+                </div>
+              </div>
+            </label>
+          </div>
+          
           <InputGroup label={`Page ${pageData.currentPage + 1} of ${pageData.parsedInstructions.length}`}>
             <div className="flex space-x-2">
               <button 
@@ -308,6 +307,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 {!markNavigation.showAllMarks && (
                   <div className="text-center mt-2 text-gray-400">
                     Mark {markNavigation.currentMarkIndex + 1} of {currentMarksCm.length}
+                    {autoAdvanceEnabled && (
+                      <div className="text-xs text-purple-300 mt-1">
+                        📖 Auto-advance enabled
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

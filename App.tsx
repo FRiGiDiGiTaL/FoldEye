@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { CameraView } from './components/CameraView';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from './types';
@@ -62,6 +62,7 @@ const parseInstructions = (text: string): string[] => {
 const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>("Enter book dimensions and start camera to begin.");
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState<boolean>(true);
 
   const initialInstructionsText = `PAGE        Measurements in CM
 # Example pattern below
@@ -118,12 +119,41 @@ const App: React.FC = () => {
   }, [pageData.parsedInstructions, pageData.currentPage]);
 
   // Reset current mark index when page changes or when marks change
-  React.useEffect(() => {
+  useEffect(() => {
     setMarkNavigation(prev => ({
       ...prev,
       currentMarkIndex: Math.min(prev.currentMarkIndex, Math.max(0, currentMarksCm.length - 1))
     }));
   }, [currentMarksCm.length, pageData.currentPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPageData(prev => {
+      for (let i = prev.currentPage + 1; i < prev.parsedInstructions.length; i++) {
+        if (prev.parsedInstructions[i]) {
+          setStatusMessage(`Auto-advanced to Page ${i + 1}`);
+          return { ...prev, currentPage: i };
+        }
+      }
+      setStatusMessage(`Reached the last page with marks (${prev.currentPage + 1})`);
+      return prev;
+    });
+    // Reset to show all marks when advancing to new page
+    setMarkNavigation({ showAllMarks: true, currentMarkIndex: 0 });
+  }, [setStatusMessage]);
+
+  const handlePrevPage = useCallback(() => {
+    setPageData(prev => {
+      for (let i = prev.currentPage - 1; i >= 0; i--) {
+        if (prev.parsedInstructions[i]) {
+          setStatusMessage(`Viewing Page ${i + 1}`);
+          return { ...prev, currentPage: i };
+        }
+      }
+      setStatusMessage(`Already on the first page with marks (${prev.currentPage + 1})`);
+      return prev;
+    });
+    setMarkNavigation({ showAllMarks: true, currentMarkIndex: 0 });
+  }, [setStatusMessage]);
 
   const handleMarkNavigation = useCallback((action: 'next' | 'prev' | 'toggleAll') => {
     setMarkNavigation(prev => {
@@ -132,7 +162,19 @@ const App: React.FC = () => {
       }
       
       if (action === 'next') {
-        const nextIndex = (prev.currentMarkIndex + 1) % currentMarksCm.length;
+        const nextIndex = prev.currentMarkIndex + 1;
+        
+        // Check if we've reached the end of marks on current page
+        if (nextIndex >= currentMarksCm.length) {
+          // Auto-advance to next page if enabled and not showing all marks
+          if (autoAdvanceEnabled && !prev.showAllMarks) {
+            handleNextPage();
+            return { showAllMarks: false, currentMarkIndex: 0 };
+          }
+          // Otherwise cycle back to first mark
+          return { showAllMarks: false, currentMarkIndex: 0 };
+        }
+        
         return { showAllMarks: false, currentMarkIndex: nextIndex };
       }
       
@@ -143,7 +185,7 @@ const App: React.FC = () => {
       
       return prev;
     });
-  }, [currentMarksCm.length]);
+  }, [currentMarksCm.length, autoAdvanceEnabled, handleNextPage]);
 
   const handleCalibrate = useCallback(() => {
     setStatusMessage("Calibration complete! Position book and use cut marks.");
@@ -174,7 +216,11 @@ const App: React.FC = () => {
         markNavigation={markNavigation}
         currentMarksCm={currentMarksCm}
         handleMarkNavigation={handleMarkNavigation}
+        handleNextPage={handleNextPage}
+        handlePrevPage={handlePrevPage}
         onCalibrate={handleCalibrate}
+        autoAdvanceEnabled={autoAdvanceEnabled}
+        setAutoAdvanceEnabled={setAutoAdvanceEnabled}
       />
       <main 
         className="flex-1 bg-black flex items-center justify-center relative"
@@ -195,6 +241,10 @@ const App: React.FC = () => {
           setTransform={setTransform}
           setStatusMessage={setStatusMessage}
           onCalibrate={handleCalibrate}
+          autoAdvanceEnabled={autoAdvanceEnabled}
+          onMarkNavigation={handleMarkNavigation}
+          onNextPage={handleNextPage}
+          onPrevPage={handlePrevPage}
         />
       </main>
     </div>
