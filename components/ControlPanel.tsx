@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from '../types';
 import { CameraIcon, RulerIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon } from './Icons';
+import { VoiceControl } from './VoiceControl';
 
 interface ControlPanelProps {
   isCameraActive: boolean;
@@ -229,10 +230,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </div>
 
-        {/* Page Navigation - STEP 3 */}
+        {/* Voice Control - STEP 3 */}
         <div>
           <StepTitle 
             stepNumber={3} 
+            title="Voice Control" 
+            instruction="Use voice commands to navigate hands-free while folding your book."
+          />
+          
+          <VoiceControl
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            onToggleMarks={() => handleMarkNavigation('toggleAll')}
+            onStatusMessage={setStatusMessage}
+          />
+        </div>
+
+        {/* Page Navigation - STEP 4 */}
+        <div>
+          <StepTitle 
+            stepNumber={4} 
             title="Page Navigation" 
             instruction="Navigate between pages that have fold marks defined in your instructions."
           />
@@ -275,12 +292,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </InputGroup>
         </div>
 
-        {/* Mark Navigation */}
+        {/* Mark Navigation - STEP 5 */}
         {calibrationData.pixelsPerCm && currentMarksCm.length > 0 && (
           <div>
-            <h2 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">
-              Mark Navigation
-            </h2>
+            <StepTitle 
+              stepNumber={5} 
+              title="Mark Navigation" 
+              instruction="Navigate through individual fold marks on the current page."
+            />
             
             <button
               onClick={() => handleMarkNavigation('toggleAll')}
@@ -342,10 +361,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         )}
 
-        {/* Marking Instructions - STEP 4 */}
+        {/* Marking Instructions - STEP 6 */}
         <div>
           <StepTitle 
-            stepNumber={4} 
+            stepNumber={6} 
             title="Marking Instructions" 
             instruction="Define which pages have fold marks and specify the measurements for each mark."
           />
