@@ -162,7 +162,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               addDebugLog(`Video: ${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight}`);
               addDebugLog(`Display: ${videoSize.width}x${videoSize.height}`);
               setVideoReady(true);
-              setStatusMessage("Camera ready!");
+              setStatusMessage("Camera ready! Voice control and long-press navigation available.");
             };
             videoRef.current.onerror = (e) => {
               console.error('Video error:', e);
@@ -209,7 +209,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
         {autoAdvanceEnabled && (
           <div className="text-purple-300">📖 Auto-advance: ON</div>
         )}
-        <div className="text-blue-300">👆 Tap-to-advance: ON</div>
+        <div className="text-blue-300">👆 Long-press navigation: ON</div>
+        <div className="text-green-300">🎤 Voice control: Available</div>
         {videoError && <div className="text-red-300">Error: {videoError}</div>}
         <div className="mt-1 space-y-1">
           {debugLogs.map((log, i) => (
@@ -360,9 +361,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
               {/* Instructions for navigation arrows */}
               <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-black/80 text-white px-3 py-2 rounded-lg text-xs pointer-events-none z-10">
                 <div className="text-center">
-                  <div className="text-gray-300">Page Navigation</div>
+                  <div className="text-gray-300">Navigation</div>
                   <div className="text-blue-300">← Prev (hold 2s)</div>
                   <div className="text-green-300">→ Next (hold 2s)</div>
+                  <div className="text-yellow-300">🎤 Voice commands</div>
                 </div>
               </div>
 
@@ -387,6 +389,29 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 <div className="absolute inset-0 bg-green-400/20 animate-pulse rounded pointer-events-none z-5"></div>
               )}
             </>
+          )}
+
+          {/* Current Page Number Display */}
+          {videoReady && (
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none z-10">
+              <div className="bg-black/80 text-white px-4 py-2 rounded-lg border-2 border-blue-400 shadow-lg">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-300">
+                    Page {pageData.currentPage + 1}
+                  </div>
+                  {pageData.parsedInstructions[pageData.currentPage] && (
+                    <div className="text-xs text-gray-300 mt-1">
+                      {marksCm.length} mark{marksCm.length !== 1 ? 's' : ''} on this page
+                    </div>
+                  )}
+                  {!pageData.parsedInstructions[pageData.currentPage] && (
+                    <div className="text-xs text-orange-300 mt-1">
+                      No marks defined for this page
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Cut marks */}
@@ -447,6 +472,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               : 'Enter book dimensions first'
             }
           </p>
+          <p className="text-xs mt-2 text-green-300">🎤 Voice control available</p>
         </div>
       )}
     </div>
