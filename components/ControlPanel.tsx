@@ -292,7 +292,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </InputGroup>
         </div>
 
-        {/* Mark Navigation - STEP 5 */}
+        {/* Mark Navigation - STEP 5 (Static Height) */}
         {calibrationData.pixelsPerCm && currentMarksCm.length > 0 && (
           <div>
             <StepTitle 
@@ -313,7 +313,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               {markNavigation.showAllMarks ? 'View All Marks' : 'Single Mark Mode'}
             </button>
 
-            <div className="mb-4 p-3 bg-gray-700/50 rounded-lg">
+            {/* Static height container for mark info */}
+            <div className="mb-4 p-3 bg-gray-700/50 rounded-lg min-h-[80px] flex flex-col justify-center">
               <div className="text-sm text-gray-300">
                 <div className="flex justify-between items-center">
                   <span>Total marks: {currentMarksCm.length}</span>
@@ -336,28 +337,31 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               </div>
             </div>
 
-            {currentMarksCm.length > 1 && (
-              <InputGroup label="Navigate Marks">
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleMarkNavigation('prev')} 
-                    className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
-                    title="Previous Mark"
-                  >
-                    <ChevronUpIcon className="w-5 h-5 mr-1"/>
-                    Up
-                  </button>
-                  <button 
-                    onClick={() => handleMarkNavigation('next')} 
-                    className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
-                    title="Next Mark"
-                  >
-                    <ChevronDownIcon className="w-5 h-5 mr-1"/>
-                    Down
-                  </button>
-                </div>
-              </InputGroup>
-            )}
+            {/* Static height container for navigation buttons */}
+            <div className="min-h-[52px] flex flex-col justify-center">
+              {currentMarksCm.length > 1 && (
+                <InputGroup label="Navigate Marks">
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => handleMarkNavigation('prev')} 
+                      className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
+                      title="Previous Mark"
+                    >
+                      <ChevronUpIcon className="w-5 h-5 mr-1"/>
+                      Up
+                    </button>
+                    <button 
+                      onClick={() => handleMarkNavigation('next')} 
+                      className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
+                      title="Next Mark"
+                    >
+                      <ChevronDownIcon className="w-5 h-5 mr-1"/>
+                      Down
+                    </button>
+                  </div>
+                </InputGroup>
+              )}
+            </div>
           </div>
         )}
 
