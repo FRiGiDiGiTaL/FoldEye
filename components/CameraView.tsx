@@ -12,7 +12,6 @@ interface CameraViewProps {
   setTransform: React.Dispatch<React.SetStateAction<Transform>>;
   setStatusMessage: (message: string) => void;
   onCalibrate: () => void;
-  autoAdvanceEnabled: boolean;
   onMarkNavigation: (action: 'next' | 'prev' | 'toggleAll') => void;
   onNextPage: () => void;
   onPrevPage: () => void;
@@ -29,7 +28,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
   setTransform,
   setStatusMessage,
   onCalibrate,
-  autoAdvanceEnabled,
   onMarkNavigation,
   onNextPage,
   onPrevPage
@@ -127,7 +125,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }, 50);
     
     setLongPressTimer(timer);
-  }, [pageData, onNextPage, setStatusMessage]);
+  }, [onNextPage, onPrevPage, setStatusMessage]);
 
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimer) {
@@ -188,10 +186,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height]);
 
-  // Check if current mark is the last one on the page
-  const isLastMark = !markNavigation.showAllMarks && 
-                     markNavigation.currentMarkIndex === marksCm.length - 1;
-
   return (
     <div
       ref={containerRef}
@@ -205,9 +199,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
         <div>Ready: {videoReady ? 'YES' : 'NO'}</div>
         {calibrationData.pixelsPerCm && (
           <div className="text-green-300">Cal: {calibrationData.pixelsPerCm.toFixed(2)} px/cm</div>
-        )}
-        {autoAdvanceEnabled && (
-          <div className="text-purple-300">📖 Auto-advance: ON</div>
         )}
         <div className="text-blue-300">👆 Long-press navigation: ON</div>
         <div className="text-green-300">🎤 Voice control: Available</div>
@@ -256,27 +247,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
             </div>
           )}
           
-          {/* Corner guides */}
+          {/* Corner guides - simplified without circular markers */}
           {videoReady && pageData.heightCm > 0 && (
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-2 -right-2">
-                <div className="w-6 h-6 bg-yellow-400 border-2 border-black rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-black rounded-full"></div>
-                </div>
-                <div className="absolute top-0 left-8 bg-yellow-400 text-black px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
-                  Top Corner
-                </div>
-              </div>
-
-              <div className="absolute -bottom-2 -right-2">
-                <div className="w-6 h-6 bg-yellow-400 border-2 border-black rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-black rounded-full"></div>
-                </div>
-                <div className="absolute bottom-0 left-8 bg-yellow-400 text-black px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
-                  Bottom Corner
-                </div>
-              </div>
-
+              {/* Right edge reference line */}
               <div className="absolute top-0 bottom-0 -right-0.5 w-1 bg-yellow-400 opacity-60"></div>
               
               <div className="absolute top-1/2 -right-12 transform -translate-y-1/2">
@@ -290,19 +264,9 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
               {/* Calibration status */}
               {!calibrationData.pixelsPerCm ? (
-                <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 text-center">
-                  <div className="bg-yellow-400 text-black px-3 py-1 rounded text-sm font-bold mb-2">
-                    Align Book's Right Edge with Corner Guides
-                  </div>
-                  <button
-                    onClick={handleCalibrate}
-                    disabled={pageData.heightCm <= 0}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded shadow-lg"
-                  >
-                    {pageData.heightCm > 0 ? 'Calibrate' : 'Enter Height First'}
-                  </button>
-                  <div className="text-white text-xs mt-1">
-                    Distance between guides = {pageData.heightCm}cm
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-center">
+                  <div className="bg-yellow-400 text-black px-3 py-1 rounded text-sm font-bold">
+                    Align Book's Right Edge with Yellow Line
                   </div>
                 </div>
               ) : (
@@ -368,21 +332,18 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 </div>
               </div>
 
-              {/* Mark navigation instruction */}
-              <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm pointer-events-none z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="text-yellow-300">📏</div>
-                  <div>
-                    {markNavigation.showAllMarks ? 
-                      "All marks visible" : 
-                      `Mark ${markNavigation.currentMarkIndex + 1}/${marksCm.length}`
-                    }
+              {/* Mark navigation instruction - only show when in single mark mode */}
+              {!markNavigation.showAllMarks && (
+                <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm pointer-events-none z-10">
+                  <div className="flex items-center space-x-2">
+                    <div className="text-yellow-300">📏</div>
+                    <div>
+                      Mark {markNavigation.currentMarkIndex + 1}/{marksCm.length}
+                    </div>
                   </div>
-                </div>
-                {!markNavigation.showAllMarks && (
                   <div className="text-xs text-gray-300 mt-1">Use controls to change marks</div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Visual feedback for successful navigation */}
               {showTapFeedback && (
@@ -417,29 +378,28 @@ export const CameraView: React.FC<CameraViewProps> = ({
           {/* Cut marks */}
           {calibrationData.pixelsPerCm && marksCm.length > 0 && videoReady && (
             <div className="absolute inset-0 pointer-events-none z-5">
-              {marksCm.map((markCm, index) => {
-                if (markCm < pageData.paddingTopCm || markCm > (pageData.heightCm - pageData.paddingBottomCm)) {
+              {marksCm.map((markValue, index) => {
+                if (markValue < pageData.paddingTopCm || markValue > (pageData.heightCm - pageData.paddingBottomCm)) {
                   return null;
                 }
 
-                const relativePosition = markCm / pageData.heightCm;
+                const relativePosition = markValue / pageData.heightCm;
                 const yPosition = relativePosition * videoSize.height;
                 
                 const shouldRenderMark = markNavigation.showAllMarks || index === markNavigation.currentMarkIndex;
                 if (!shouldRenderMark) return null;
                 
                 const isActiveMark = !markNavigation.showAllMarks && index === markNavigation.currentMarkIndex;
-                const isLastMarkOnPage = index === marksCm.length - 1;
                 
                 let markColor = "#ff007f"; // Default pink
                 if (isActiveMark) {
-                  markColor = autoAdvanceEnabled && isLastMarkOnPage ? "#9333ea" : "#ffff00";
+                  markColor = "#ffff00"; // Yellow for active mark
                 }
                 
                 return (
                   <div key={index} className="absolute right-0" style={{ top: `${yPosition}px` }}>
                     <div 
-                      className={`w-8 h-0.5 -translate-y-0.5 ${autoAdvanceEnabled && isActiveMark && isLastMarkOnPage ? 'animate-pulse' : ''}`}
+                      className="w-8 h-0.5 -translate-y-0.5"
                       style={{ backgroundColor: markColor }}
                     ></div>
                     {isActiveMark && (
@@ -447,10 +407,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
                         className="absolute right-10 top-0 transform -translate-y-1/2 text-xs font-mono px-1 py-0.5 rounded z-10"
                         style={{ color: markColor, backgroundColor: 'rgba(0,0,0,0.7)' }}
                       >
-                        {markCm.toFixed(1)}cm
-                        {autoAdvanceEnabled && isLastMarkOnPage && (
-                          <div className="text-xs text-purple-300">→ Next Page</div>
-                        )}
+                        {markValue.toFixed(1)}cm
                       </div>
                     )}
                   </div>

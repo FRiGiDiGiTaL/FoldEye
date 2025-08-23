@@ -21,8 +21,6 @@ interface ControlPanelProps {
   handleNextPage: () => void;
   handlePrevPage: () => void;
   onCalibrate: () => void;
-  autoAdvanceEnabled: boolean;
-  setAutoAdvanceEnabled: (enabled: boolean) => void;
 }
 
 const InputGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -82,8 +80,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   handleNextPage,
   handlePrevPage,
   onCalibrate,
-  autoAdvanceEnabled,
-  setAutoAdvanceEnabled,
 }) => {
   const handlePageDataChange = (field: keyof PageData, value: number) => {
     setPageData(prev => ({ ...prev, [field]: value }));
@@ -198,9 +194,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               onClick={handleCalibrate}
               disabled={pageData.heightCm <= 0}
               className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium transition-colors mb-3"
-              title={pageData.heightCm <= 0 ? "Please enter book height first" : "Click to calibrate the camera"}
+              title={pageData.heightCm <= 0 ? "Please enter book height first" : "Click to start the overlay system"}
             >
-              {pageData.heightCm <= 0 ? 'Enter Height to Calibrate' : 'Manual Calibrate'}
+              {pageData.heightCm <= 0 ? 'Enter Height First' : 'Start Overlay'}
             </button>
           )}
 
@@ -253,24 +249,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             title="Page Navigation" 
             instruction="Navigate between pages that have fold marks defined in your instructions."
           />
-          
-          {/* Auto-advance toggle */}
-          <div className="mb-4 p-3 bg-purple-900/30 border border-purple-700 rounded-md">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoAdvanceEnabled}
-                onChange={(e) => setAutoAdvanceEnabled(e.target.checked)}
-                className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-              />
-              <div>
-                <div className="text-sm font-medium text-purple-300">Auto Page Advance</div>
-                <div className="text-xs text-gray-400">
-                  Automatically advance to next page when reaching the last mark
-                </div>
-              </div>
-            </label>
-          </div>
           
           <InputGroup label={`Page ${pageData.currentPage + 1} of ${pageData.parsedInstructions.length}`}>
             <div className="flex space-x-2">
@@ -327,11 +305,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 {!markNavigation.showAllMarks && (
                   <div className="text-center mt-2 text-gray-400">
                     Mark {markNavigation.currentMarkIndex + 1} of {currentMarksCm.length}
-                    {autoAdvanceEnabled && (
-                      <div className="text-xs text-purple-300 mt-1">
-                        📖 Auto-advance enabled
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
