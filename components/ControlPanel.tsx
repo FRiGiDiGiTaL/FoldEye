@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from '../types';
 import { CameraIcon, RulerIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon } from './Icons';
 import { VoiceControl } from './VoiceControl';
@@ -165,6 +165,85 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   handlePrevPage,
   onCalibrate,
 }) => {
+  // State for raw input and formatted output
+  const [rawInput, setRawInput] = useState('');
+  const [formattedOutput, setFormattedOutput] = useState('');
+
+  // Function to clean and format book folding input
+  const cleanBookFoldingInput = useCallback((raw: string): string => {
+    if (!raw || !raw.trim()) return '';
+    
+    const lines = raw.trim().split("\n");
+    let result: string[] = [];
+    let autoPage = 1;
+    
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+      
+      // Skip comment lines
+      if (line.startsWith('#')) {
+        result.push(line);
+        continue;
+      }
+      
+      // Remove common prefixes
+      line = line.replace(/^(Page|Pg|P)\.?\s*/i, "");
+      line = line.replace(/[:]/g, " "); // Replace colons with spaces
+      
+      // Try to extract explicit page number
+      const pageMatch = line.match(/^(\d+)\s+(.*)$/);
+      let measurements: string;
+      let pageNumbers: string;
+      
+      if (pageMatch) {
+        // Explicit page number found
+        const pageNo = parseInt(pageMatch[1]);
+        measurements = pageMatch[2];
+        pageNumbers = pageNo + "-" + (pageNo + 1);
+      } else {
+        // No explicit page number, use auto-incrementing
+        measurements = line;
+        pageNumbers = autoPage + "-" + (autoPage + 1);
+        autoPage += 2;
+      }
+      
+      // Clean up measurements: normalize separators
+      measurements = measurements
+        .replace(/[|;]/g, ",")           // Replace pipes and semicolons with commas
+        .replace(/\s+/g, " ")           // Multiple spaces to single space
+        .replace(/,\s*,/g, ",")         // Remove double commas
+        .replace(/,\s+/g, ", ")         // Normalize comma spacing
+        .replace(/\s*,/g, ",")          // Remove space before comma
+        .replace(/,/g, ", ")             // Add space after comma
+        .replace(/,\s*$/, "")           // Remove trailing comma
+        .trim();
+      
+      // Only add if we have actual measurements
+      if (measurements && measurements.match(/\d/)) {
+        result.push(pageNumbers + "    " + measurements);
+      }
+    }
+    
+    return result.join("\n");
+  }, []);
+
+  // Handle raw input changes
+  const handleRawInputChange = useCallback((value: string) => {
+    setRawInput(value);
+    const cleaned = cleanBookFoldingInput(value);
+    setFormattedOutput(cleaned);
+  }, [cleanBookFoldingInput]);
+
+  // Apply formatted output to main instructions
+  const applyFormattedOutput = useCallback(() => {
+    if (formattedOutput.trim()) {
+      handleInstructionsTextChange(formattedOutput);
+      // Clear the input boxes after applying
+      setRawInput('');
+      setFormattedOutput('');
+    }
+  }, [formattedOutput, handleInstructionsTextChange]);
   // Collapsible panel state - Step 1 starts expanded, updated step numbers
   const [expandedPanels, setExpandedPanels] = useState<Record<number, boolean>>({
     1: true, // Book Dimensions starts expanded
@@ -511,19 +590,62 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           onToggle={() => togglePanel(5)}
           isComplete={stepCompletion[5]}
         >
-          <InputGroup label="Enter Marks (e.g., 1-2  0.1, 0.5, 1.0, 10.0)">
-            <textarea
-              value={pageData.instructionsText}
-              onChange={handleInstructionsChange}
-              rows={6}
-              className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-            />
-          </InputGroup>
+          <div className="space-y-4">
+            {/* Raw Input Area */}
+            <InputGroup label="Paste Your Measurements (any format)">
+              <textarea
+                value={rawInput}
+                onChange={(e) => handleRawInputChange(e.target.value)}
+                placeholder="Paste measurements here... (e.g., Page 1 2.2 5.5 7.7, 8.1, 8.9 | 9.3, 10.0 | 11.0)"
+                rows={4}
+                className="w-full bg-gray-600 border border-gray-500 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm placeholder-gray-400"
+              />
+            </InputGroup>
+
+            {/* Auto-formatted Output */}
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-blue-400">Auto-Formatted Output:</label>
+                <button
+                  onClick={applyFormattedOutput}
+                  disabled={!formattedOutput.trim()}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+                >
+                  Apply ✓
+                </button>
+              </div>
+              <pre className="bg-gray-800/50 p-2 rounded text-green-400 font-mono text-xs whitespace-pre-wrap min-h-[60px] border border-gray-600">
+                {formattedOutput || 'Cleaned output will appear here...'}
+              </pre>
+            </div>
+
+            {/* Manual Entry Area */}
+            <InputGroup label="Manual Entry / Final Instructions">
+              <textarea
+                value={pageData.instructionsText}
+                onChange={handleInstructionsChange}
+                rows={6}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                placeholder="1-2    0.1, 0.5, 1.0, 10.0&#10;3-4    0.2, 0.8, 9.5&#10;5-6    0.3, 1.2, 2.1, 8.8"
+              />
+            </InputGroup>
+
+            {/* Format Help */}
+            <div className="bg-gray-700/30 rounded-lg p-3 text-xs text-gray-400">
+              <h4 className="text-white font-semibold mb-2">📝 Supported Input Formats:</h4>
+              <div className="grid grid-cols-1 gap-2">
+                <div>• <span className="text-green-400">Page 1 2.2 5.5 7.7, 8.1</span> → Auto-converts to proper format</div>
+                <div>• <span className="text-green-400">1 2.2, 5.5 | 7.7 | 8.1</span> → Handles pipes and commas</div>
+                <div>• <span className="text-green-400">Page 5: 1.1, 2.2, 3.3</span> → Removes extra text</div>
+                <div>• <span className="text-yellow-400">Final:</span> <span className="text-blue-400">1-2    2.2, 5.5, 7.7, 8.1</span></div>
+              </div>
+            </div>
+          </div>
           
           {pageData.parsedInstructions.length > 0 && (
-            <div className="mt-2 p-2 bg-gray-700/30 rounded-md">
-              <p className="text-xs text-gray-400">
-                Parsed {pageData.parsedInstructions.filter(p => p).length} pages with marks
+            <div className="mt-2 p-2 bg-green-900/20 border border-green-500/30 rounded-md">
+              <p className="text-sm text-green-400 font-medium">
+                ✓ Parsed {pageData.parsedInstructions.filter(p => p).length} pages with marks successfully
               </p>
             </div>
           )}
