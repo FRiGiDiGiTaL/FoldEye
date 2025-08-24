@@ -49,9 +49,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     >
       <div className="flex items-center">
         <RulerIcon className="w-5 h-5 mr-3 text-blue-400" />
-        <div>
-          <h2 className="text-lg font-bold text-yellow-300 flex items-center">
-            {title} - <span className="text-orange-400 ml-1">STEP {stepNumber}</span>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-yellow-300 flex items-center justify-between">
+            <span>{title}</span>
             {isComplete && (
               <span className="ml-2 text-green-400 text-sm">✓</span>
             )}
@@ -80,9 +80,15 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   </div>
 );
 
-const InputGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+const InputGroup: React.FC<{ label: string; children: React.ReactNode; centered?: boolean }> = ({ 
+  label, 
+  children,
+  centered = false 
+}) => (
   <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-400 mb-1">{label}</label>
+    <label className={`block text-sm font-medium text-gray-400 mb-1 ${centered ? 'text-center' : ''}`}>
+      {label}
+    </label>
     {children}
   </div>
 );
@@ -107,6 +113,39 @@ const NumberInput: React.FC<{
   </div>
 );
 
+// Custom button component with press effect
+const PressButton: React.FC<{
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  title?: string;
+}> = ({ onClick, children, className = '', disabled = false, title }) => {
+  const [isPressed, setIsPressed] = useState(false);
+
+  const handleMouseDown = () => setIsPressed(true);
+  const handleMouseUp = () => setIsPressed(false);
+  const handleMouseLeave = () => setIsPressed(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      disabled={disabled}
+      title={title}
+      className={`transition-colors duration-150 ${
+        isPressed && !disabled
+          ? 'bg-white text-gray-900' // Inverted colors when pressed
+          : className
+      }`}
+    >
+      {children}
+    </button>
+  );
+};
+
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   isCameraActive,
   setIsCameraActive,
@@ -126,14 +165,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   handlePrevPage,
   onCalibrate,
 }) => {
-  // Collapsible panel state - Step 1 starts expanded
+  // Collapsible panel state - Step 1 starts expanded, updated step numbers
   const [expandedPanels, setExpandedPanels] = useState<Record<number, boolean>>({
     1: true, // Book Dimensions starts expanded
     2: false,
     3: false,
-    4: false,
-    5: false,
-    6: false
+    4: false, // Combined Page & Mark Navigation
+    5: false  // Marking Instructions (was step 6)
   });
 
   const togglePanel = (stepNumber: number) => {
@@ -184,9 +222,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     1: pageData.heightCm > 0,
     2: calibrationData.pixelsPerCm !== null,
     3: true, // Voice control is always "ready"
-    4: pageData.parsedInstructions.some(p => p !== ''),
-    5: currentMarksCm.length > 0,
-    6: pageData.parsedInstructions.filter(p => p).length > 0
+    4: pageData.parsedInstructions.some(p => p !== '') && currentMarksCm.length > 0, // Combined step
+    5: pageData.parsedInstructions.filter(p => p).length > 0 // Marking Instructions
   };
 
   return (
@@ -239,28 +276,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         `
       }} />
 
-      {/* Progress indicator */}
-      <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg">
-        <div className="text-xs text-blue-300 mb-2">Setup Progress</div>
-        <div className="flex space-x-1">
-          {[1, 2, 3, 4, 5, 6].map(step => (
-            <div
-              key={step}
-              className={`flex-1 h-2 rounded-full transition-colors ${
-                stepCompletion[step as keyof typeof stepCompletion]
-                  ? 'bg-green-500'
-                  : 'bg-gray-600'
-              }`}
-            />
-          ))}
-        </div>
-        <div className="text-xs text-gray-400 mt-1">
-          {Object.values(stepCompletion).filter(Boolean).length}/6 steps complete
-        </div>
-      </div>
+
 
       <div className="space-y-3">
-        {/* Book Dimensions - STEP 1 */}
+        {/* Book Dimensions */}
         <CollapsibleSection
           stepNumber={1}
           title="Book Dimensions"
@@ -295,7 +314,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </InputGroup>
         </CollapsibleSection>
 
-        {/* Camera & Overlay - STEP 2 */}
+        {/* Camera & Overlay */}
         <CollapsibleSection
           stepNumber={2}
           title="Camera & Overlay"
@@ -352,7 +371,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </CollapsibleSection>
 
-        {/* Voice Control - STEP 3 */}
+        {/* Voice Control */}
         <CollapsibleSection
           stepNumber={3}
           title="Voice Control"
@@ -369,45 +388,68 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           />
         </CollapsibleSection>
 
-        {/* Page Navigation - STEP 4 */}
+        {/* Combined Page & Mark Navigation */}
         <CollapsibleSection
           stepNumber={4}
-          title="Page Navigation"
-          instruction="Navigate between pages that have fold marks defined in your instructions."
+          title="Page & Mark Navigation"
+          instruction="Navigate between pages and individual fold marks while working on your book."
           isExpanded={expandedPanels[4]}
           onToggle={() => togglePanel(4)}
           isComplete={stepCompletion[4]}
         >
-          <InputGroup label={`Page ${pageData.currentPage + 1} of ${pageData.parsedInstructions.length}`}>
-            <div className="flex space-x-2">
-              <button 
-                onClick={handlePrevPage} 
-                disabled={pageData.currentPage <= firstMarkedPageIndex} 
-                className="p-2 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeftIcon className="w-5 h-5"/>
-              </button>
-              <button 
-                onClick={handleNextPage} 
-                disabled={pageData.currentPage >= lastMarkedPageIndex} 
-                className="p-2 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRightIcon className="w-5 h-5"/>
-              </button>
-            </div>
-          </InputGroup>
-        </CollapsibleSection>
+          {/* Page Navigation Section */}
+          <div className="text-center mb-6">
+            <InputGroup 
+              label={`Page ${pageData.currentPage + 1} of ${pageData.parsedInstructions.length}`}
+              centered={true}
+            >
+              <div className="flex justify-center space-x-4">
+                <PressButton
+                  onClick={handlePrevPage}
+                  disabled={pageData.currentPage <= firstMarkedPageIndex}
+                  className="px-6 py-3 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-lg font-medium"
+                >
+                  <ChevronLeftIcon className="w-6 h-6"/>
+                </PressButton>
+                <PressButton
+                  onClick={handleNextPage}
+                  disabled={pageData.currentPage >= lastMarkedPageIndex}
+                  className="px-6 py-3 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-lg font-medium"
+                >
+                  <ChevronRightIcon className="w-6 h-6"/>
+                </PressButton>
+              </div>
+            </InputGroup>
+          </div>
 
-        {/* Mark Navigation - STEP 5 */}
-        <CollapsibleSection
-          stepNumber={5}
-          title="Mark Navigation"
-          instruction="Navigate through individual fold marks on the current page."
-          isExpanded={expandedPanels[5]}
-          onToggle={() => togglePanel(5)}
-          isComplete={stepCompletion[5]}
-        >
-          {/* Two separate buttons for mark modes */}
+          {/* Mark Display Section */}
+          <div className="text-center mb-6">
+            <div className="p-3 bg-gray-700/50 rounded-lg min-h-[80px] flex flex-col justify-center">
+              {currentMarksCm.length > 0 ? (
+                <div className="text-lg text-gray-300 font-medium">
+                  <div className="flex justify-center items-center">
+                    <span>Total marks: {currentMarksCm.length}</span>
+                    {!markNavigation.showAllMarks && (
+                      <span className="text-pink-300 font-mono ml-4">
+                        {currentMarksCm[markNavigation.currentMarkIndex]?.toFixed(1)}cm
+                      </span>
+                    )}
+                  </div>
+                  {!markNavigation.showAllMarks && (
+                    <div className="text-center mt-2 text-gray-400">
+                      Mark {markNavigation.currentMarkIndex + 1} of {currentMarksCm.length}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-lg text-gray-400">
+                  No marks available for current page
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mark Mode Toggle Buttons */}
           <div className="flex space-x-2 mb-4">
             <button
               onClick={() => handleMarkNavigation('toggleAll')}
@@ -433,66 +475,41 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </button>
           </div>
 
-          {/* Static height container for mark info */}
-          <div className="mb-4 p-3 bg-gray-700/50 rounded-lg min-h-[80px] flex flex-col justify-center">
-            {currentMarksCm.length > 0 ? (
-              <div className="text-sm text-gray-300">
-                <div className="flex justify-between items-center">
-                  <span>Total marks: {currentMarksCm.length}</span>
-                  {!markNavigation.showAllMarks && (
-                    <span className="text-pink-300 font-mono">
-                      {currentMarksCm[markNavigation.currentMarkIndex]?.toFixed(1)}cm
-                    </span>
-                  )}
-                </div>
-                {!markNavigation.showAllMarks && (
-                  <div className="text-center mt-2 text-gray-400">
-                    Mark {markNavigation.currentMarkIndex + 1} of {currentMarksCm.length}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-400 text-center">
-                No marks available for current page
-              </div>
-            )}
-          </div>
-
-          {/* Static height container for navigation buttons */}
-          <div className="min-h-[52px] flex flex-col justify-center">
-            {currentMarksCm.length > 1 && (
-              <InputGroup label="Navigate Marks">
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handleMarkNavigation('prev')} 
-                    className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
+          {/* Mark Navigation Buttons */}
+          {currentMarksCm.length > 1 && (
+            <div className="text-center">
+              <InputGroup label="Navigate Marks" centered={true}>
+                <div className="flex justify-center space-x-4">
+                  <PressButton
+                    onClick={() => handleMarkNavigation('prev')}
+                    className="px-6 py-3 bg-gray-700 rounded-md hover:bg-gray-600 text-lg font-medium flex items-center"
                     title="Previous Mark"
                   >
-                    <ChevronUpIcon className="w-5 h-5 mr-1"/>
+                    <ChevronUpIcon className="w-6 h-6 mr-2"/>
                     Up
-                  </button>
-                  <button 
-                    onClick={() => handleMarkNavigation('next')} 
-                    className="flex-1 p-2 bg-gray-700 rounded-md hover:bg-gray-600 flex items-center justify-center"
+                  </PressButton>
+                  <PressButton
+                    onClick={() => handleMarkNavigation('next')}
+                    className="px-6 py-3 bg-gray-700 rounded-md hover:bg-gray-600 text-lg font-medium flex items-center"
                     title="Next Mark"
                   >
-                    <ChevronDownIcon className="w-5 h-5 mr-1"/>
+                    <ChevronDownIcon className="w-6 h-6 mr-2"/>
                     Down
-                  </button>
+                  </PressButton>
                 </div>
               </InputGroup>
-            )}
-          </div>
+            </div>
+          )}
         </CollapsibleSection>
 
-        {/* Marking Instructions - STEP 6 */}
+        {/* Marking Instructions */}
         <CollapsibleSection
-          stepNumber={6}
+          stepNumber={5}
           title="Marking Instructions"
           instruction="Define which pages have fold marks and specify the measurements for each mark."
-          isExpanded={expandedPanels[6]}
-          onToggle={() => togglePanel(6)}
-          isComplete={stepCompletion[6]}
+          isExpanded={expandedPanels[5]}
+          onToggle={() => togglePanel(5)}
+          isComplete={stepCompletion[5]}
         >
           <InputGroup label="Enter Marks (e.g., 1-2  0.1, 0.5, 1.0, 10.0)">
             <textarea
