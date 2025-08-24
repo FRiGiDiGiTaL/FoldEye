@@ -37,18 +37,76 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const [showTapFeedback, setShowTapFeedback] = useState(false);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
-  const [pressProgress, setPressProgress] = useState(0);
-  const [pressType, setPressType] = useState<'next' | 'prev' | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('prompt');
 
   const addDebugLog = (message: string) => {
     console.log(message);
     setDebugLogs(prev => [...prev.slice(-4), message]);
   };
 
+  // Check camera permission status
+  const checkCameraPermission = useCallback(async () => {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const permissionResult = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        setPermissionStatus(permissionResult.state);
+        
+        // Listen for permission changes
+        permissionResult.onchange = () => {
+          setPermissionStatus(permissionResult.state);
+        };
+      }
+    } catch (error) {
+      addDebugLog('Permission API not supported');
+    }
+  }, []);
+
+  // Request camera permission explicitly
+  const requestCameraPermission = useCallback(async () => {
+    setPermissionStatus('checking');
+    setVideoError(null);
+    
+    try {
+      addDebugLog('Requesting camera permission...');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      setPermissionStatus('granted');
+      addDebugLog('✓ Camera permission granted');
+      return stream;
+      
+    } catch (err: any) {
+      setPermissionStatus('denied');
+      
+      let errorMessage = 'Camera access denied';
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access and try again.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found on this device.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Camera is already in use by another application.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Camera constraints could not be satisfied.';
+      } else {
+        errorMessage = `Camera error: ${err.message}`;
+      }
+      
+      setVideoError(errorMessage);
+      addDebugLog(`❌ ${errorMessage}`);
+      setStatusMessage(errorMessage);
+      
+      throw err;
+    }
+  }, [setStatusMessage]);
+
   // Calculate video dimensions based on book dimensions
-  const calculateVideoSize = () => {
+  const calculateVideoSize = useCallback(() => {
     const { heightCm, widthCm } = pageData;
     
     if (heightCm <= 0) {
@@ -69,7 +127,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
     
     return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
-  };
+  }, [pageData.heightCm, pageData.widthCm]);
 
   const videoSize = calculateVideoSize();
 
@@ -86,55 +144,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [pageData.heightCm, videoSize.height, setCalibrationData, setStatusMessage, onCalibrate]);
 
-  // Handle long press for navigation
-  const handleLongPressStart = useCallback((action: 'next' | 'prev', e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setPressType(action);
-    setPressProgress(0);
-    
-    const LONG_PRESS_DURATION = 2000; // 2 seconds
-    let startTime = Date.now();
-    
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = (elapsed / LONG_PRESS_DURATION) * 100;
-      
-      if (progress >= 100) {
-        // Long press completed
-        clearInterval(timer);
-        setPressProgress(0);
-        setPressType(null);
-        setLongPressTimer(null);
-        
-        if (action === 'next') {
-          onNextPage();
-          setStatusMessage("Long press - advanced to next page");
-        } else {
-          onPrevPage();
-          setStatusMessage("Long press - returned to previous page");
-        }
-        
-        // Visual feedback
-        setShowTapFeedback(true);
-        setTimeout(() => setShowTapFeedback(false), 300);
-      } else {
-        setPressProgress(progress);
-      }
-    }, 50);
-    
-    setLongPressTimer(timer);
-  }, [onNextPage, onPrevPage, setStatusMessage]);
-
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimer) {
-      clearInterval(longPressTimer);
-      setLongPressTimer(null);
-    }
-    setPressProgress(0);
-    setPressType(null);
-  }, [longPressTimer]);
+  // Check permissions on component mount
+  useEffect(() => {
+    checkCameraPermission();
+  }, [checkCameraPermission]);
 
   // Set up camera
   useEffect(() => {
@@ -143,13 +156,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
       setVideoReady(false);
       addDebugLog('Starting camera...');
       
-      navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      })
+      requestCameraPermission()
         .then(stream => {
           addDebugLog('✓ Camera stream obtained');
           if (videoRef.current) {
@@ -171,9 +178,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         })
         .catch(err => {
           console.error("Camera error:", err);
-          addDebugLog(`❌ Camera error: ${err.message}`);
-          setVideoError(`Camera error: ${err.message}`);
-          setStatusMessage("Camera error. Please check permissions.");
+          // Error handling is done in requestCameraPermission
         });
     } else {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -183,8 +188,9 @@ export const CameraView: React.FC<CameraViewProps> = ({
       setVideoReady(false);
       setVideoError(null);
       setDebugLogs([]);
+      setPermissionStatus('prompt');
     }
-  }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height]);
+  }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height, requestCameraPermission]);
 
   return (
     <div
@@ -196,11 +202,12 @@ export const CameraView: React.FC<CameraViewProps> = ({
         <div>Book: {pageData.heightCm}cm × {pageData.widthCm}cm</div>
         <div>Video: {videoSize.width}×{videoSize.height}px</div>
         <div>Camera: {isCameraActive ? 'ON' : 'OFF'}</div>
+        <div>Permission: {permissionStatus.toUpperCase()}</div>
         <div>Ready: {videoReady ? 'YES' : 'NO'}</div>
         {calibrationData.pixelsPerCm && (
           <div className="text-green-300">Cal: {calibrationData.pixelsPerCm.toFixed(2)} px/cm</div>
         )}
-        <div className="text-blue-300">👆 Long-press navigation: ON</div>
+        <div className="text-blue-300">👆 Touch navigation removed</div>
         <div className="text-green-300">🎤 Voice control: Available</div>
         {videoError && <div className="text-red-300">Error: {videoError}</div>}
         <div className="mt-1 space-y-1">
@@ -228,11 +235,15 @@ export const CameraView: React.FC<CameraViewProps> = ({
           />
           
           {/* Loading overlay */}
-          {!videoReady && !videoError && (
+          {(!videoReady && !videoError) && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-600/90 rounded">
               <div className="text-white text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                <p>Starting camera...</p>
+                <p>
+                  {permissionStatus === 'checking' ? 'Requesting camera permission...' :
+                   permissionStatus === 'prompt' ? 'Click to request camera access' :
+                   'Starting camera...'}
+                </p>
               </div>
             </div>
           )}
@@ -243,6 +254,16 @@ export const CameraView: React.FC<CameraViewProps> = ({
               <div className="text-white text-center p-4">
                 <p className="font-bold mb-2">Camera Error</p>
                 <p className="text-sm">{videoError}</p>
+                {permissionStatus === 'denied' && (
+                  <div className="mt-3">
+                    <p className="text-xs mb-2">To fix this:</p>
+                    <ul className="text-xs text-left space-y-1">
+                      <li>• Click the camera icon in your address bar</li>
+                      <li>• Select "Allow" for camera access</li>
+                      <li>• Refresh the page and try again</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -277,79 +298,17 @@ export const CameraView: React.FC<CameraViewProps> = ({
             </div>
           )}
 
-          {/* Navigation arrows near spine (left side) - Long Press zones */}
-          {calibrationData.pixelsPerCm && marksCm.length > 0 && videoReady && (
-            <>
-              {/* Previous Page Arrow - Top Left */}
-              <div 
-                className="absolute left-2 top-8 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center cursor-pointer select-none z-20 border-2 border-gray-400 hover:border-white transition-colors"
-                onMouseDown={(e) => handleLongPressStart('prev', e)}
-                onMouseUp={handleLongPressEnd}
-                onMouseLeave={handleLongPressEnd}
-                onTouchStart={(e) => handleLongPressStart('prev', e)}
-                onTouchEnd={handleLongPressEnd}
-                title="Long press (2s) for previous page"
-              >
-                <div className="text-white text-xl">←</div>
-                {pressType === 'prev' && (
-                  <div 
-                    className="absolute inset-0 rounded-full border-4 border-blue-500"
-                    style={{
-                      background: `conic-gradient(from 0deg, #3b82f6 ${pressProgress * 3.6}deg, transparent ${pressProgress * 3.6}deg)`
-                    }}
-                  />
-                )}
-              </div>
-              
-              {/* Next Page Arrow - Bottom Left */}
-              <div 
-                className="absolute left-2 bottom-8 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center cursor-pointer select-none z-20 border-2 border-gray-400 hover:border-white transition-colors"
-                onMouseDown={(e) => handleLongPressStart('next', e)}
-                onMouseUp={handleLongPressEnd}
-                onMouseLeave={handleLongPressEnd}
-                onTouchStart={(e) => handleLongPressStart('next', e)}
-                onTouchEnd={handleLongPressEnd}
-                title="Long press (2s) for next page"
-              >
-                <div className="text-white text-xl">→</div>
-                {pressType === 'next' && (
-                  <div 
-                    className="absolute inset-0 rounded-full border-4 border-green-500"
-                    style={{
-                      background: `conic-gradient(from 0deg, #10b981 ${pressProgress * 3.6}deg, transparent ${pressProgress * 3.6}deg)`
-                    }}
-                  />
-                )}
-              </div>
-              
-              {/* Instructions for navigation arrows */}
-              <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-black/80 text-white px-3 py-2 rounded-lg text-xs pointer-events-none z-10">
-                <div className="text-center">
-                  <div className="text-gray-300">Navigation</div>
-                  <div className="text-blue-300">← Prev (hold 2s)</div>
-                  <div className="text-green-300">→ Next (hold 2s)</div>
-                  <div className="text-yellow-300">🎤 Voice commands</div>
+          {/* Mark navigation instruction - only show when in single mark mode */}
+          {!markNavigation.showAllMarks && (
+            <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm pointer-events-none z-10">
+              <div className="flex items-center space-x-2">
+                <div className="text-yellow-300">📏</div>
+                <div>
+                  Mark {markNavigation.currentMarkIndex + 1}/{marksCm.length}
                 </div>
               </div>
-
-              {/* Mark navigation instruction - only show when in single mark mode */}
-              {!markNavigation.showAllMarks && (
-                <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm pointer-events-none z-10">
-                  <div className="flex items-center space-x-2">
-                    <div className="text-yellow-300">📏</div>
-                    <div>
-                      Mark {markNavigation.currentMarkIndex + 1}/{marksCm.length}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-300 mt-1">Use controls to change marks</div>
-                </div>
-              )}
-
-              {/* Visual feedback for successful navigation */}
-              {showTapFeedback && (
-                <div className="absolute inset-0 bg-green-400/20 animate-pulse rounded pointer-events-none z-5"></div>
-              )}
-            </>
+              <div className="text-xs text-gray-300 mt-1">Use controls to change marks</div>
+            </div>
           )}
 
           {/* Current Page Number Display */}
@@ -429,6 +388,12 @@ export const CameraView: React.FC<CameraViewProps> = ({
               : 'Enter book dimensions first'
             }
           </p>
+          {permissionStatus === 'denied' && (
+            <div className="mt-3 text-center">
+              <p className="text-xs text-red-300 mb-2">Camera permission was denied</p>
+              <p className="text-xs text-gray-400">Please allow camera access in your browser settings</p>
+            </div>
+          )}
           <p className="text-xs mt-2 text-green-300">🎤 Voice control available</p>
         </div>
       )}

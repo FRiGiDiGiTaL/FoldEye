@@ -10,9 +10,6 @@ export interface PageData {
 
 export interface CalibrationData {
   pixelsPerCm: number | null;
-  detectionMethod?: 'automatic' | 'manual';
-  confidence?: number;
-  detectionTimestamp?: number;
 }
 
 export interface Transform {
@@ -24,26 +21,4 @@ export interface Transform {
 export interface MarkNavigation {
   showAllMarks: boolean;
   currentMarkIndex: number;
-}
-
-export interface DetectedCorners {
-  topLeft: { x: number; y: number };
-  topRight: { x: number; y: number };
-  bottomLeft: { x: number; y: number };
-  bottomRight: { x: number; y: number };
-  confidence: number;
-}
-
-export interface CalibrationSettings {
-  autoDetectionEnabled: boolean;
-  detectionThreshold: number;
-  detectionInterval: number;
-  minConfidence: number;
-}
-
-export interface DetectionState {
-  isDetecting: boolean;
-  lastDetection: DetectedCorners | null;
-  detectionHistory: DetectedCorners[];
-  averageConfidence: number;
 }
