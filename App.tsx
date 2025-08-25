@@ -64,7 +64,7 @@ const parseInstructions = (text: string): string[] => {
 
 const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string>("Enter book dimensions and start camera to begin with enhanced features.");
+  const [statusMessage, setStatusMessage] = useState<string>("✨ Enter book dimensions and start camera for enhanced AR experience");
 
   const initialInstructionsText = `PAGE        Measurements in CM
 # Example pattern below - try PDF import for easier setup!
@@ -93,10 +93,13 @@ const App: React.FC = () => {
 
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
 
-  // New state for enhanced features
-  const [showGrid, setShowGrid] = useState<boolean>(false);
+  // Enhanced features state
+  const [showGrid, setShowGrid] = useState<boolean>(true);
   const [gridType, setGridType] = useState<'rule-of-thirds' | 'quarters' | 'golden-ratio'>('rule-of-thirds');
-  const [gridOpacity, setGridOpacity] = useState<number>(0.3);
+  const [gridOpacity, setGridOpacity] = useState<number>(0.4);
+  
+  // Particle effects state
+  const [triggerParticles, setTriggerParticles] = useState<boolean>(false);
 
   const handleInstructionsTextChange = useCallback((text: string) => {
     const newParsedInstructions = parseInstructions(text);
@@ -137,7 +140,10 @@ const App: React.FC = () => {
     setPageData(prev => {
       for (let i = prev.currentPage + 1; i < prev.parsedInstructions.length; i++) {
         if (prev.parsedInstructions[i]) {
-          setStatusMessage(`✨ Advanced to Page ${i + 1} with enhanced visualization`);
+          setStatusMessage(`✨ Advanced to Page ${i + 1} with enhanced AR visualization`);
+          // Trigger particle effect on page change
+          setTriggerParticles(true);
+          setTimeout(() => setTriggerParticles(false), 100);
           return { ...prev, currentPage: i };
         }
       }
@@ -151,7 +157,10 @@ const App: React.FC = () => {
     setPageData(prev => {
       for (let i = prev.currentPage - 1; i >= 0; i--) {
         if (prev.parsedInstructions[i]) {
-          setStatusMessage(`✨ Viewing Page ${i + 1} with enhanced features`);
+          setStatusMessage(`✨ Viewing Page ${i + 1} with enhanced AR features`);
+          // Trigger particle effect on page change
+          setTriggerParticles(true);
+          setTimeout(() => setTriggerParticles(false), 100);
           return { ...prev, currentPage: i };
         }
       }
@@ -165,7 +174,10 @@ const App: React.FC = () => {
     setMarkNavigation(prev => {
       if (action === 'toggleAll') {
         const newShowAll = !prev.showAllMarks;
-        setStatusMessage(newShowAll ? '✨ Showing all marks with enhanced effects' : '🎯 Single mark mode with particle effects');
+        setStatusMessage(newShowAll ? '✨ Showing all marks with particle effects' : '🎯 Single mark mode with enhanced focus');
+        // Trigger particles when toggling view
+        setTriggerParticles(true);
+        setTimeout(() => setTriggerParticles(false), 100);
         return { ...prev, showAllMarks: newShowAll };
       }
       
@@ -192,17 +204,18 @@ const App: React.FC = () => {
   }, [currentMarksCm.length, setStatusMessage]);
 
   const handleCalibrate = useCallback(() => {
-    setStatusMessage("✨ Enhanced calibration complete! Particle effects, glassmorphism UI, and grid alignment ready.");
+    setStatusMessage("✨ Enhanced AR calibration complete! Particle effects, glassmorphism UI, and grid alignment ready.");
+    // Trigger celebration particles
+    setTriggerParticles(true);
+    setTimeout(() => setTriggerParticles(false), 100);
   }, []);
   
   return (
     <div 
-      className="flex flex-col bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:flex-row" 
+      className="flex flex-col bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:flex-row md:h-screen" 
       style={{ 
-        height: '100vh',
         minHeight: '100vh',
-        width: '100vw',
-        overflow: 'hidden'
+        width: '100vw'
       }}
     >
       <ControlPanel
@@ -231,11 +244,10 @@ const App: React.FC = () => {
         setGridOpacity={setGridOpacity}
       />
       <main 
-        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative"
+        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container md:h-screen md:overflow-hidden"
         style={{
-          height: '100%',
-          minHeight: '400px',
-          overflow: 'hidden'
+          minHeight: '60vh', // Minimum height for mobile
+          padding: '1rem' // Add padding for mobile spacing
         }}
       >
         <CameraView
@@ -255,14 +267,32 @@ const App: React.FC = () => {
           showGrid={showGrid}
           gridType={gridType}
           gridOpacity={gridOpacity}
+          triggerParticles={triggerParticles}
         />
       </main>
       
-      {/* Enhanced Status Bar */}
+      {/* Enhanced Status Bar with Glassmorphism */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-        <div className="glass-card px-4 py-2 rounded-full shadow-2xl max-w-md text-center">
-          <p className="text-sm text-blue-300 font-medium">{statusMessage}</p>
+        <div className="glass-card glass-shimmer px-6 py-3 rounded-full shadow-2xl max-w-lg text-center border border-blue-500/30">
+          <p className="text-sm text-blue-300 font-medium flex items-center justify-center">
+            <span className="animate-pulse mr-2">✨</span>
+            {statusMessage}
+          </p>
         </div>
+      </div>
+
+      {/* Floating Grid Toggle - Repositioned for mobile */}
+      <div className="fixed top-4 right-4 z-40">
+        <button
+          onClick={() => setShowGrid(!showGrid)}
+          className={`glass-button px-3 py-2 md:px-4 md:py-2 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 text-xs md:text-sm ${
+            showGrid ? 'glass-status-success' : 'glass-status-warning'
+          }`}
+        >
+          <span className="font-medium flex items-center">
+            📐 <span className="hidden sm:inline ml-1">{showGrid ? 'Grid ON' : 'Grid OFF'}</span>
+          </span>
+        </button>
       </div>
     </div>
   );
