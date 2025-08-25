@@ -338,7 +338,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   return (
-    <aside className="w-full glass-panel-dark p-4 flex-shrink-0 shadow-2xl md:w-96 md:h-screen md:overflow-y-auto border-r border-gray-600/30">
+    <aside className="w-full glass-panel-dark p-4 flex-shrink-0 shadow-2xl md:w-96 md:h-screen md:overflow-y-auto border-r border-gray-600/30 overflow-y-auto max-h-screen">
       <div className="flex items-center mb-6">
         <div className="relative">
           <RulerIcon className="w-8 h-8 mr-3 text-blue-400" />

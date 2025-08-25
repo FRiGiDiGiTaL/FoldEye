@@ -125,18 +125,37 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
     const aspectRatio = widthCm > 0 ? widthCm / heightCm : 0.75;
     const isMobile = window.innerWidth < 768;
-    const maxHeight = isMobile ? Math.min(window.innerHeight * 0.6, 400) : 500;
-    const maxWidth = isMobile ? Math.min(window.innerWidth * 0.8, 300) : 400;
     
-    let videoHeight = maxHeight;
-    let videoWidth = videoHeight * aspectRatio;
-    
-    if (videoWidth > maxWidth) {
-      videoWidth = maxWidth;
-      videoHeight = videoWidth / aspectRatio;
+    if (isMobile) {
+      // Mobile: Use safe area and ensure full visibility
+      const safeWidth = Math.min(window.innerWidth - 32, 350); // 32px for padding
+      const safeHeight = Math.min(window.innerHeight * 0.6, 450); // 60% of viewport
+      
+      let videoHeight = safeHeight;
+      let videoWidth = videoHeight * aspectRatio;
+      
+      // If too wide, constrain by width
+      if (videoWidth > safeWidth) {
+        videoWidth = safeWidth;
+        videoHeight = videoWidth / aspectRatio;
+      }
+      
+      return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
+    } else {
+      // Desktop sizing remains the same
+      const maxHeight = 500;
+      const maxWidth = 400;
+      
+      let videoHeight = maxHeight;
+      let videoWidth = videoHeight * aspectRatio;
+      
+      if (videoWidth > maxWidth) {
+        videoWidth = maxWidth;
+        videoHeight = videoWidth / aspectRatio;
+      }
+      
+      return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
     }
-    
-    return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
   }, [pageData.heightCm, pageData.widthCm]);
 
   const videoSize = calculateVideoSize();
@@ -205,7 +224,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative bg-gradient-to-br from-gray-800 via-gray-900 to-black overflow-hidden flex items-center justify-center"
+      className="w-full h-full relative bg-gradient-to-br from-gray-800 via-gray-900 to-black overflow-visible flex items-center justify-center"
     >
       {/* Enhanced debug info with glassmorphism */}
       <div className="absolute top-2 left-2 glass-card rounded-lg text-white text-xs p-3 z-50 max-w-xs">
@@ -242,14 +261,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
           {videoError && <div className="text-red-300">❌ Error: {videoError}</div>}
         </div>
         
-        {debugLogs.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-gray-600">
-            <div className="text-gray-400 font-semibold mb-1">Recent Logs:</div>
-            {debugLogs.map((log, i) => (
-              <div key={i} className="text-xs text-green-300">{log}</div>
-            ))}
-          </div>
-        )}
+
       </div>
 
       {isCameraActive ? (
@@ -364,17 +376,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
               </div>
 
               {/* Calibration status with enhanced styling */}
-              {!calibrationData.pixelsPerCm ? (
+              {!calibrationData.pixelsPerCm && (
                 <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-center">
                   <div className="glass-status-warning px-4 py-2 rounded-lg text-sm font-bold shadow-xl animate-bounce">
                     <span className="animate-pulse">⚡</span> Align Book's Right Edge with Yellow Line
-                  </div>
-                </div>
-              ) : (
-                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-                  <div className="glass-status-success px-4 py-2 rounded-lg text-sm font-bold shadow-xl flex items-center">
-                    <span className="animate-spin mr-2">✨</span>
-                    AR Calibrated - Enhanced Features Active
                   </div>
                 </div>
               )}

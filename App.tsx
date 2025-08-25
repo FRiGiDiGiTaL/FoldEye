@@ -212,11 +212,7 @@ const App: React.FC = () => {
   
   return (
     <div 
-      className="flex flex-col bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:flex-row md:h-screen" 
-      style={{ 
-        minHeight: '100vh',
-        width: '100vw'
-      }}
+      className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:h-screen md:flex md:flex-row"
     >
       <ControlPanel
         isCameraActive={isCameraActive}
@@ -244,39 +240,41 @@ const App: React.FC = () => {
         setGridOpacity={setGridOpacity}
       />
       <main 
-        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container md:h-screen md:overflow-hidden"
+        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container p-4 md:h-screen md:overflow-hidden"
         style={{
-          minHeight: '60vh', // Minimum height for mobile
-          padding: '1rem' // Add padding for mobile spacing
+          minHeight: '100vh', // Full viewport height on mobile
+          paddingBottom: '6rem' // Extra space for status bar on mobile
         }}
       >
-        <CameraView
-          isCameraActive={isCameraActive}
-          calibrationData={calibrationData}
-          setCalibrationData={setCalibrationData}
-          pageData={pageData}
-          marksCm={currentMarksCm}
-          markNavigation={markNavigation}
-          transform={transform}
-          setTransform={setTransform}
-          setStatusMessage={setStatusMessage}
-          onCalibrate={handleCalibrate}
-          onMarkNavigation={handleMarkNavigation}
-          onNextPage={handleNextPage}
-          onPrevPage={handlePrevPage}
-          showGrid={showGrid}
-          gridType={gridType}
-          gridOpacity={gridOpacity}
-          triggerParticles={triggerParticles}
-        />
+        <div className="w-full h-full flex items-center justify-center">
+          <CameraView
+            isCameraActive={isCameraActive}
+            calibrationData={calibrationData}
+            setCalibrationData={setCalibrationData}
+            pageData={pageData}
+            marksCm={currentMarksCm}
+            markNavigation={markNavigation}
+            transform={transform}
+            setTransform={setTransform}
+            setStatusMessage={setStatusMessage}
+            onCalibrate={handleCalibrate}
+            onMarkNavigation={handleMarkNavigation}
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            showGrid={showGrid}
+            gridType={gridType}
+            gridOpacity={gridOpacity}
+            triggerParticles={triggerParticles}
+          />
+        </div>
       </main>
       
-      {/* Enhanced Status Bar with Glassmorphism */}
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-        <div className="glass-card glass-shimmer px-6 py-3 rounded-full shadow-2xl max-w-lg text-center border border-blue-500/30">
-          <p className="text-sm text-blue-300 font-medium flex items-center justify-center">
+      {/* Enhanced Status Bar with Glassmorphism - Mobile responsive positioning */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none px-4">
+        <div className="glass-card glass-shimmer px-4 py-2 md:px-6 md:py-3 rounded-full shadow-2xl max-w-xs md:max-w-lg text-center border border-blue-500/30">
+          <p className="text-xs md:text-sm text-blue-300 font-medium flex items-center justify-center">
             <span className="animate-pulse mr-2">✨</span>
-            {statusMessage}
+            <span className="truncate">{statusMessage}</span>
           </p>
         </div>
       </div>
