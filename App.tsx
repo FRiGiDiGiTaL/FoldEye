@@ -3,6 +3,9 @@ import { ControlPanel } from './components/ControlPanel';
 import { CameraView } from './components/CameraView';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from './types';
 
+// Import the glassmorphism styles
+import './glassmorphism.css';
+
 const parseInstructions = (text: string): string[] => {
   const lines = text.split('\n');
   const instructionsMap = new Map<number, string>();
@@ -61,10 +64,10 @@ const parseInstructions = (text: string): string[] => {
 
 const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string>("Enter book dimensions and start camera to begin.");
+  const [statusMessage, setStatusMessage] = useState<string>("Enter book dimensions and start camera to begin with enhanced features.");
 
   const initialInstructionsText = `PAGE        Measurements in CM
-# Example pattern below
+# Example pattern below - try PDF import for easier setup!
 17-18        0.5, 7.9, 8.0, 9.6, 9.8, 10.0, 10.1, 20.5
 19-20        0.5, 20.5
 21-22        0.5, 8.4, 8.5, 10.7, 10.9, 20.5`;
@@ -89,6 +92,11 @@ const App: React.FC = () => {
   });
 
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
+
+  // New state for enhanced features
+  const [showGrid, setShowGrid] = useState<boolean>(false);
+  const [gridType, setGridType] = useState<'rule-of-thirds' | 'quarters' | 'golden-ratio'>('rule-of-thirds');
+  const [gridOpacity, setGridOpacity] = useState<number>(0.3);
 
   const handleInstructionsTextChange = useCallback((text: string) => {
     const newParsedInstructions = parseInstructions(text);
@@ -129,14 +137,13 @@ const App: React.FC = () => {
     setPageData(prev => {
       for (let i = prev.currentPage + 1; i < prev.parsedInstructions.length; i++) {
         if (prev.parsedInstructions[i]) {
-          setStatusMessage(`Advanced to Page ${i + 1}`);
+          setStatusMessage(`✨ Advanced to Page ${i + 1} with enhanced visualization`);
           return { ...prev, currentPage: i };
         }
       }
       setStatusMessage(`Reached the last page with marks (${prev.currentPage + 1})`);
       return prev;
     });
-    // Reset to show all marks when advancing to new page
     setMarkNavigation({ showAllMarks: true, currentMarkIndex: 0 });
   }, [setStatusMessage]);
 
@@ -144,7 +151,7 @@ const App: React.FC = () => {
     setPageData(prev => {
       for (let i = prev.currentPage - 1; i >= 0; i--) {
         if (prev.parsedInstructions[i]) {
-          setStatusMessage(`Viewing Page ${i + 1}`);
+          setStatusMessage(`✨ Viewing Page ${i + 1} with enhanced features`);
           return { ...prev, currentPage: i };
         }
       }
@@ -157,42 +164,45 @@ const App: React.FC = () => {
   const handleMarkNavigation = useCallback((action: 'next' | 'prev' | 'toggleAll') => {
     setMarkNavigation(prev => {
       if (action === 'toggleAll') {
-        return { ...prev, showAllMarks: !prev.showAllMarks };
+        const newShowAll = !prev.showAllMarks;
+        setStatusMessage(newShowAll ? '✨ Showing all marks with enhanced effects' : '🎯 Single mark mode with particle effects');
+        return { ...prev, showAllMarks: newShowAll };
       }
       
       if (action === 'next') {
         const nextIndex = prev.currentMarkIndex + 1;
         
-        // Check if we've reached the end of marks on current page
         if (nextIndex >= currentMarksCm.length) {
-          // Cycle back to first mark
+          setStatusMessage('🔄 Cycling to first mark');
           return { showAllMarks: false, currentMarkIndex: 0 };
         }
         
+        setStatusMessage(`📏 Mark ${nextIndex + 1}/${currentMarksCm.length}: ${currentMarksCm[nextIndex]?.toFixed(1)}cm`);
         return { showAllMarks: false, currentMarkIndex: nextIndex };
       }
       
       if (action === 'prev') {
         const prevIndex = prev.currentMarkIndex === 0 ? currentMarksCm.length - 1 : prev.currentMarkIndex - 1;
+        setStatusMessage(`📏 Mark ${prevIndex + 1}/${currentMarksCm.length}: ${currentMarksCm[prevIndex]?.toFixed(1)}cm`);
         return { showAllMarks: false, currentMarkIndex: prevIndex };
       }
       
       return prev;
     });
-  }, [currentMarksCm.length]);
+  }, [currentMarksCm.length, setStatusMessage]);
 
   const handleCalibrate = useCallback(() => {
-    setStatusMessage("Calibration complete! Position book and use cut marks.");
+    setStatusMessage("✨ Enhanced calibration complete! Particle effects, glassmorphism UI, and grid alignment ready.");
   }, []);
   
   return (
     <div 
-      className="flex flex-col bg-gray-900 text-gray-100 md:flex-row" 
+      className="flex flex-col bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:flex-row" 
       style={{ 
-        height: '100vh',           // Explicit viewport height
-        minHeight: '100vh',        // Minimum fallback
-        width: '100vw',            // Full viewport width
-        overflow: 'hidden'         // Prevent scrollbars
+        height: '100vh',
+        minHeight: '100vh',
+        width: '100vw',
+        overflow: 'hidden'
       }}
     >
       <ControlPanel
@@ -213,13 +223,19 @@ const App: React.FC = () => {
         handleNextPage={handleNextPage}
         handlePrevPage={handlePrevPage}
         onCalibrate={handleCalibrate}
+        showGrid={showGrid}
+        setShowGrid={setShowGrid}
+        gridType={gridType}
+        setGridType={setGridType}
+        gridOpacity={gridOpacity}
+        setGridOpacity={setGridOpacity}
       />
       <main 
-        className="flex-1 bg-black flex items-center justify-center relative"
+        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative"
         style={{
-          height: '100%',           // Take full available height
-          minHeight: '400px',       // Mobile fallback minimum
-          overflow: 'hidden'        // Prevent internal scrolling
+          height: '100%',
+          minHeight: '400px',
+          overflow: 'hidden'
         }}
       >
         <CameraView
@@ -236,8 +252,18 @@ const App: React.FC = () => {
           onMarkNavigation={handleMarkNavigation}
           onNextPage={handleNextPage}
           onPrevPage={handlePrevPage}
+          showGrid={showGrid}
+          gridType={gridType}
+          gridOpacity={gridOpacity}
         />
       </main>
+      
+      {/* Enhanced Status Bar */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+        <div className="glass-card px-4 py-2 rounded-full shadow-2xl max-w-md text-center">
+          <p className="text-sm text-blue-300 font-medium">{statusMessage}</p>
+        </div>
+      </div>
     </div>
   );
 };
