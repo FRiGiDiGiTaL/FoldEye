@@ -47,6 +47,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [debugInfoCollapsed, setDebugInfoCollapsed] = useState<boolean>(false);
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('prompt');
 
   // Calculate first and last marked page indices for navigation
@@ -236,39 +237,58 @@ export const CameraView: React.FC<CameraViewProps> = ({
       ref={containerRef}
       className="w-full h-full relative bg-gradient-to-br from-gray-800 via-gray-900 to-black overflow-visible flex items-center justify-center"
     >
-      {/* Enhanced debug info with glassmorphism */}
-      <div className="absolute top-2 left-2 glass-card rounded-lg text-white text-xs p-3 z-50 max-w-xs">
-        <div className="space-y-1 text-green-400">
-          <div className="text-blue-300 font-semibold mb-2">📊 AR Status</div>
-          <div>📖 Book: {pageData.heightCm}cm × {pageData.widthCm}cm</div>
-          <div>📺 Video: {videoSize.width}×{videoSize.height}px</div>
-          <div className="flex items-center">
-            📷 Camera: 
-            <span className={`ml-1 font-semibold ${isCameraActive ? 'text-green-400' : 'text-red-400'}`}>
-              {isCameraActive ? 'ON' : 'OFF'}
-            </span>
+      {/* Collapsible debug info with glassmorphism */}
+      <div className="absolute top-2 left-2 z-50 max-w-xs">
+        <div className="glass-card rounded-lg text-white text-xs border border-gray-500/30">
+          {/* Collapsible header */}
+          <div 
+            className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg"
+            onClick={() => setDebugInfoCollapsed(!debugInfoCollapsed)}
+          >
+            <div className="text-blue-300 font-semibold flex items-center">
+              📊 AR Status
+            </div>
+            <div className="text-gray-400">
+              {debugInfoCollapsed ? '▼' : '▲'}
+            </div>
           </div>
-          <div className="flex items-center">
-            🔐 Permission: 
-            <span className={`ml-1 font-semibold ${
-              permissionStatus === 'granted' ? 'text-green-400' : 
-              permissionStatus === 'denied' ? 'text-red-400' : 'text-yellow-400'
-            }`}>
-              {permissionStatus.toUpperCase()}
-            </span>
+          
+          {/* Collapsible content */}
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            debugInfoCollapsed ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+          }`}>
+            <div className="px-3 pb-3 space-y-1 text-green-400 border-t border-gray-600/30 pt-2">
+              <div>📖 Book: {pageData.heightCm}cm × {pageData.widthCm}cm</div>
+              <div>📺 Video: {videoSize.width}×{videoSize.height}px</div>
+              <div className="flex items-center">
+                📷 Camera: 
+                <span className={`ml-1 font-semibold ${isCameraActive ? 'text-green-400' : 'text-red-400'}`}>
+                  {isCameraActive ? 'ON' : 'OFF'}
+                </span>
+              </div>
+              <div className="flex items-center">
+                🔐 Permission: 
+                <span className={`ml-1 font-semibold ${
+                  permissionStatus === 'granted' ? 'text-green-400' : 
+                  permissionStatus === 'denied' ? 'text-red-400' : 'text-yellow-400'
+                }`}>
+                  {permissionStatus.toUpperCase()}
+                </span>
+              </div>
+              <div className="flex items-center">
+                ✅ Ready: 
+                <span className={`ml-1 font-semibold ${videoReady ? 'text-green-400' : 'text-gray-400'}`}>
+                  {videoReady ? 'YES' : 'NO'}
+                </span>
+              </div>
+              {calibrationData.pixelsPerCm && (
+                <div className="text-cyan-400">🎯 Cal: {calibrationData.pixelsPerCm.toFixed(2)} px/cm</div>
+              )}
+              <div className="text-purple-400">✨ Effects: Active</div>
+              <div className="text-green-400">🎤 Voice: Available</div>
+              {videoError && <div className="text-red-300">❌ Error: {videoError}</div>}
+            </div>
           </div>
-          <div className="flex items-center">
-            ✅ Ready: 
-            <span className={`ml-1 font-semibold ${videoReady ? 'text-green-400' : 'text-gray-400'}`}>
-              {videoReady ? 'YES' : 'NO'}
-            </span>
-          </div>
-          {calibrationData.pixelsPerCm && (
-            <div className="text-cyan-400">🎯 Cal: {calibrationData.pixelsPerCm.toFixed(2)} px/cm</div>
-          )}
-          <div className="text-purple-400">✨ Effects: Active</div>
-          <div className="text-green-400">🎤 Voice: Available</div>
-          {videoError && <div className="text-red-300">❌ Error: {videoError}</div>}
         </div>
       </div>
 
@@ -371,18 +391,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
               {/* Animated right edge reference line */}
               <div className="absolute top-0 bottom-0 -right-0.5 w-1 bg-gradient-to-b from-yellow-400 via-yellow-500 to-yellow-600 opacity-80 shadow-lg animate-pulse"></div>
               
-              {/* Enhanced measurement display */}
-              <div className="absolute top-1/2 -right-16 transform -translate-y-1/2">
-                <div className="glass-card px-3 py-2 rounded-lg border border-blue-400/50 shadow-xl">
-                  <div className="text-blue-300 text-sm font-bold">
-                    📏 {pageData.heightCm}cm
-                  </div>
-                  <div className="text-xs text-gray-300 mt-1">
-                    {videoSize.height}px
-                  </div>
-                </div>
-              </div>
-
               {/* Calibration status with enhanced styling */}
               {!calibrationData.pixelsPerCm && (
                 <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-center">
@@ -526,8 +534,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
                       }}
                     ></div>
                     
-                    {/* Clean mark label without glow */}
-                    {isActiveMark && (
+                    {/* Clean mark label without glow - only show on desktop or when specifically needed */}
+                    {isActiveMark && window.innerWidth >= 768 && (
                       <div 
                         className="absolute right-10 top-0 transform -translate-y-1/2 bg-black/80 px-2 py-1 rounded text-xs font-mono font-bold z-10 border border-gray-600"
                         style={{ 
