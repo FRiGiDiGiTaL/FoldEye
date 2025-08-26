@@ -3,6 +3,7 @@ import type { PageData, CalibrationData, Transform, MarkNavigation } from '../ty
 import { CameraIcon, RulerIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon } from './Icons';
 import { VoiceControl } from './VoiceControl';
 import { GridControls } from './GridLines';
+import { PDFImport } from './PDFImport';
 
 interface ControlPanelProps {
   isCameraActive: boolean;
@@ -662,10 +663,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </CollapsibleSection>
 
-        {/* Enhanced Marking Instructions */}
+        {/* PDF Import Section */}
         <CollapsibleSection
           stepNumber={5}
-          title="Marking Instructions"
+          title="PDF Import"
+          instruction="Upload a PDF with book folding instructions to automatically extract measurements."
+          isExpanded={expandedPanels[5]}
+          onToggle={() => togglePanel(5)}
+          isComplete={stepCompletion[5]}
+        >
+          <PDFImport
+            onInstructionsImported={handleInstructionsTextChange}
+            onStatusMessage={setStatusMessage}
+          />
+        </CollapsibleSection>
+
+        {/* Enhanced Marking Instructions */}
+        <CollapsibleSection
+          stepNumber={6}
+          title="Manual Marking Instructions"
           instruction="Define which pages have fold marks and specify measurements for enhanced AR visualization."
           isExpanded={expandedPanels[5]}
           onToggle={() => togglePanel(5)}
