@@ -49,6 +49,16 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('prompt');
 
+  // Calculate first and last marked page indices for navigation
+  const firstMarkedPageIndex = pageData.parsedInstructions.findIndex(p => !!p);
+  let lastMarkedPageIndex = -1;
+  for (let i = pageData.parsedInstructions.length - 1; i >= 0; i--) {
+    if (pageData.parsedInstructions[i]) {
+      lastMarkedPageIndex = i;
+      break;
+    }
+  }
+
   const addDebugLog = (message: string) => {
     console.log(message);
     setDebugLogs(prev => [...prev.slice(-4), message]);
@@ -260,8 +270,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
           <div className="text-green-400">🎤 Voice: Available</div>
           {videoError && <div className="text-red-300">❌ Error: {videoError}</div>}
         </div>
-        
-
       </div>
 
       {isCameraActive ? (
@@ -424,6 +432,60 @@ export const CameraView: React.FC<CameraViewProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Navigation Controls - Outside video container */}
+          {videoReady && (
+            <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto z-20 md:hidden">
+              <div className="flex items-center space-x-4">
+                {/* Page Navigation */}
+                <div className="flex items-center space-x-2 glass-card px-3 py-2 rounded-full border border-blue-400/30">
+                  <button
+                    onClick={onPrevPage}
+                    disabled={pageData.currentPage <= firstMarkedPageIndex}
+                    className="w-8 h-8 flex items-center justify-center rounded-full glass-button disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-all duration-200 hover:scale-105"
+                  >
+                    ←
+                  </button>
+                  <span className="text-xs text-blue-300 font-medium px-1">PAGE</span>
+                  <button
+                    onClick={onNextPage}
+                    disabled={pageData.currentPage >= lastMarkedPageIndex}
+                    className="w-8 h-8 flex items-center justify-center rounded-full glass-button disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-all duration-200 hover:scale-105"
+                  >
+                    →
+                  </button>
+                </div>
+
+                {/* Mark Navigation */}
+                {marksCm.length > 1 && (
+                  <div className="flex items-center space-x-2 glass-card px-3 py-2 rounded-full border border-purple-400/30">
+                    <button
+                      onClick={() => onMarkNavigation('prev')}
+                      className="w-8 h-8 flex items-center justify-center rounded-full glass-button text-xs font-bold transition-all duration-200 hover:scale-105"
+                    >
+                      ↑
+                    </button>
+                    <span className="text-xs text-purple-300 font-medium px-1">MARK</span>
+                    <button
+                      onClick={() => onMarkNavigation('next')}
+                      className="w-8 h-8 flex items-center justify-center rounded-full glass-button text-xs font-bold transition-all duration-200 hover:scale-105"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+
+                {/* Toggle All/Single View */}
+                <button
+                  onClick={() => onMarkNavigation('toggleAll')}
+                  className="w-10 h-10 flex items-center justify-center rounded-full glass-card border border-yellow-400/30 text-xs transition-all duration-200 hover:scale-105"
+                  title={markNavigation.showAllMarks ? 'Switch to single mark view' : 'Show all marks'}
+                >
+                  {markNavigation.showAllMarks ? '🎯' : '✨'}
+                </button>
               </div>
             </div>
           )}
