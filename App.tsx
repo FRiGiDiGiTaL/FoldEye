@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { CameraView } from './components/CameraView';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { PWAStatusIndicator } from './components/PWAStatusIndicator';
+import { usePWA } from './hooks/usePWA';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from './types';
 
 // Import the glassmorphism styles
@@ -66,6 +69,21 @@ const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>("✨ Enter book dimensions and start camera for enhanced AR experience");
 
+  // PWA Hook
+  const {
+    isInstallable,
+    isInstalled,
+    isOffline,
+    updateAvailable,
+    installApp,
+    updateApp,
+    dismissInstallPrompt
+  } = usePWA();
+
+  // PWA Install state
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
+
   const initialInstructionsText = `PAGE        Measurements in CM
 # Example pattern below - try PDF import for easier setup!
 17-18        0.5, 7.9, 8.0, 9.6, 9.8, 10.0, 10.1, 20.5
@@ -100,6 +118,85 @@ const App: React.FC = () => {
   
   // Particle effects state
   const [triggerParticles, setTriggerParticles] = useState<boolean>(false);
+
+  // PWA Install Prompt Logic
+  useEffect(() => {
+    if (isInstallable && !isInstalled) {
+      // Show install prompt after user has interacted with the app for a bit
+      const timer = setTimeout(() => {
+        setShowInstallPrompt(true);
+      }, 10000); // Show after 10 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [isInstallable, isInstalled]);
+
+  // Handle PWA shortcuts
+  useEffect(() => {
+    const handlePWAShortcuts = () => {
+      if (sessionStorage.getItem('pwa-auto-camera') === 'true') {
+        setIsCameraActive(true);
+        setStatusMessage("📱 PWA: Camera shortcut activated!");
+        sessionStorage.removeItem('pwa-auto-camera');
+      }
+      
+      if (sessionStorage.getItem('pwa-auto-voice') === 'true') {
+        setStatusMessage("🎤 PWA: Voice control shortcut activated!");
+        sessionStorage.removeItem('pwa-auto-voice');
+      }
+    };
+
+    // Check on mount
+    handlePWAShortcuts();
+
+    // Listen for custom events
+    const handleCameraShortcut = () => {
+      setIsCameraActive(true);
+      setStatusMessage("📱 PWA: Camera activated via shortcut!");
+    };
+
+    const handleVoiceShortcut = () => {
+      setStatusMessage("🎤 PWA: Voice control activated via shortcut!");
+    };
+
+    window.addEventListener('pwa-camera-shortcut', handleCameraShortcut);
+    window.addEventListener('pwa-voice-shortcut', handleVoiceShortcut);
+
+    return () => {
+      window.removeEventListener('pwa-camera-shortcut', handleCameraShortcut);
+      window.removeEventListener('pwa-voice-shortcut', handleVoiceShortcut);
+    };
+  }, []);
+
+  // PWA Install Handler
+  const handleInstallPWA = async () => {
+    setIsInstalling(true);
+    try {
+      const success = await installApp();
+      if (success) {
+        setShowInstallPrompt(false);
+        setStatusMessage("🎉 BookfoldAR installed successfully! Check your home screen.");
+      } else {
+        setStatusMessage("❌ Installation cancelled or failed.");
+      }
+    } catch (error) {
+      console.error('Install error:', error);
+      setStatusMessage("❌ Installation error occurred.");
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  // PWA Update Handler
+  const handleUpdatePWA = async () => {
+    try {
+      await updateApp();
+      setStatusMessage("🔄 App updated! Changes will apply after refresh.");
+    } catch (error) {
+      console.error('Update error:', error);
+      setStatusMessage("❌ Update failed. Please try again.");
+    }
+  };
 
   const handleInstructionsTextChange = useCallback((text: string) => {
     const newParsedInstructions = parseInstructions(text);
@@ -214,6 +311,24 @@ const App: React.FC = () => {
     <div 
       className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:h-screen md:flex md:flex-row"
     >
+      {/* PWA Status Indicators */}
+      <PWAStatusIndicator
+        isOffline={isOffline}
+        updateAvailable={updateAvailable}
+        onUpdate={handleUpdatePWA}
+      />
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt
+        isVisible={showInstallPrompt && !isInstalled}
+        onInstall={handleInstallPWA}
+        onDismiss={() => {
+          setShowInstallPrompt(false);
+          dismissInstallPrompt();
+        }}
+        isInstalling={isInstalling}
+      />
+
       <ControlPanel
         isCameraActive={isCameraActive}
         setIsCameraActive={setIsCameraActive}
@@ -275,6 +390,7 @@ const App: React.FC = () => {
           <p className="text-xs md:text-sm text-blue-300 font-medium flex items-center justify-center">
             <span className="animate-pulse mr-2">✨</span>
             <span className="truncate">{statusMessage}</span>
+            {isOffline && <span className="ml-2 text-yellow-400">📴</span>}
           </p>
         </div>
       </div>
@@ -292,6 +408,21 @@ const App: React.FC = () => {
           </span>
         </button>
       </div>
+
+      {/* PWA Install Button for Desktop */}
+      {isInstallable && !isInstalled && !showInstallPrompt && (
+        <div className="fixed bottom-20 right-4 z-40 hidden md:block">
+          <button
+            onClick={() => setShowInstallPrompt(true)}
+            className="glass-button px-4 py-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 border border-purple-400/50"
+          >
+            <span className="font-medium flex items-center text-purple-300">
+              <span className="animate-bounce mr-2">📱</span>
+              <span className="text-sm">Install App</span>
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
