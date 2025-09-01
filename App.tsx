@@ -3,6 +3,9 @@ import { ControlPanel } from './components/ControlPanel';
 import { CameraView } from './components/CameraView';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { PWAStatusIndicator } from './components/PWAStatusIndicator';
+import { TrialBanner } from './components/TrialBanner';
+import { FeatureGuard } from './components/FeatureGuard';
+import { SubscriptionProvider } from './hooks/useSubscription';
 import { usePWA } from './hooks/usePWA';
 import type { PageData, CalibrationData, Transform, MarkNavigation } from './types';
 
@@ -65,7 +68,7 @@ const parseInstructions = (text: string): string[] => {
   return newInstructionsArray;
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>("✨ Enter book dimensions and start camera for enhanced AR experience");
 
@@ -122,10 +125,9 @@ const App: React.FC = () => {
   // PWA Install Prompt Logic
   useEffect(() => {
     if (isInstallable && !isInstalled) {
-      // Show install prompt after user has interacted with the app for a bit
       const timer = setTimeout(() => {
         setShowInstallPrompt(true);
-      }, 10000); // Show after 10 seconds
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
@@ -146,10 +148,8 @@ const App: React.FC = () => {
       }
     };
 
-    // Check on mount
     handlePWAShortcuts();
 
-    // Listen for custom events
     const handleCameraShortcut = () => {
       setIsCameraActive(true);
       setStatusMessage("📱 PWA: Camera activated via shortcut!");
@@ -311,6 +311,9 @@ const App: React.FC = () => {
     <div 
       className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:h-screen md:flex md:flex-row"
     >
+      {/* Trial Banner */}
+      <TrialBanner />
+
       {/* PWA Status Indicators */}
       <PWAStatusIndicator
         isOffline={isOffline}
@@ -319,16 +322,19 @@ const App: React.FC = () => {
       />
 
       {/* PWA Install Prompt */}
-      <PWAInstallPrompt
-        isVisible={showInstallPrompt && !isInstalled}
-        onInstall={handleInstallPWA}
-        onDismiss={() => {
-          setShowInstallPrompt(false);
-          dismissInstallPrompt();
-        }}
-        isInstalling={isInstalling}
-      />
+      <FeatureGuard feature="premium_features" showPaywall={false} gracefulDegradation={true}>
+        <PWAInstallPrompt
+          isVisible={showInstallPrompt && !isInstalled}
+          onInstall={handleInstallPWA}
+          onDismiss={() => {
+            setShowInstallPrompt(false);
+            dismissInstallPrompt();
+          }}
+          isInstalling={isInstalling}
+        />
+      </FeatureGuard>
 
+      {/* Control Panel - Wrap premium features */}
       <ControlPanel
         isCameraActive={isCameraActive}
         setIsCameraActive={setIsCameraActive}
@@ -354,76 +360,134 @@ const App: React.FC = () => {
         gridOpacity={gridOpacity}
         setGridOpacity={setGridOpacity}
       />
+      
       <main 
         className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container p-4 md:h-screen md:overflow-hidden"
         style={{
-          minHeight: '100vh', // Full viewport height on mobile
-          paddingBottom: '6rem' // Extra space for status bar on mobile
+          minHeight: '100vh',
+          paddingBottom: '6rem'
         }}
       >
         <div className="w-full h-full flex items-center justify-center">
-          <CameraView
-            isCameraActive={isCameraActive}
-            calibrationData={calibrationData}
-            setCalibrationData={setCalibrationData}
-            pageData={pageData}
-            marksCm={currentMarksCm}
-            markNavigation={markNavigation}
-            transform={transform}
-            setTransform={setTransform}
-            setStatusMessage={setStatusMessage}
-            onCalibrate={handleCalibrate}
-            onMarkNavigation={handleMarkNavigation}
-            onNextPage={handleNextPage}
-            onPrevPage={handlePrevPage}
-            showGrid={showGrid}
-            gridType={gridType}
-            gridOpacity={gridOpacity}
-            triggerParticles={triggerParticles}
-          />
+          {/* Camera View with Feature Guards */}
+          <FeatureGuard 
+            feature="ar_effects" 
+            gracefulDegradation={true}
+            fallback={
+              <CameraView
+                isCameraActive={isCameraActive}
+                calibrationData={calibrationData}
+                setCalibrationData={setCalibrationData}
+                pageData={pageData}
+                marksCm={currentMarksCm}
+                markNavigation={markNavigation}
+                transform={transform}
+                setTransform={setTransform}
+                setStatusMessage={setStatusMessage}
+                onCalibrate={handleCalibrate}
+                onMarkNavigation={handleMarkNavigation}
+                onNextPage={handleNextPage}
+                onPrevPage={handlePrevPage}
+                showGrid={false} // Disable grid for free users
+                gridType={gridType}
+                gridOpacity={gridOpacity}
+                triggerParticles={false} // Disable particles for free users
+              />
+            }
+          >
+            <CameraView
+              isCameraActive={isCameraActive}
+              calibrationData={calibrationData}
+              setCalibrationData={setCalibrationData}
+              pageData={pageData}
+              marksCm={currentMarksCm}
+              markNavigation={markNavigation}
+              transform={transform}
+              setTransform={setTransform}
+              setStatusMessage={setStatusMessage}
+              onCalibrate={handleCalibrate}
+              onMarkNavigation={handleMarkNavigation}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              showGrid={showGrid}
+              gridType={gridType}
+              gridOpacity={gridOpacity}
+              triggerParticles={triggerParticles}
+            />
+          </FeatureGuard>
         </div>
       </main>
       
-      {/* Enhanced Status Bar with Glassmorphism - Mobile responsive positioning */}
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none px-4">
-        <div className="glass-card glass-shimmer px-4 py-2 md:px-6 md:py-3 rounded-full shadow-2xl max-w-xs md:max-w-lg text-center border border-blue-500/30">
-          <p className="text-xs md:text-sm text-blue-300 font-medium flex items-center justify-center">
-            <span className="animate-pulse mr-2">✨</span>
-            <span className="truncate">{statusMessage}</span>
-            {isOffline && <span className="ml-2 text-yellow-400">📴</span>}
-          </p>
+      {/* Enhanced Status Bar with Glassmorphism - Protected by feature guard */}
+      <FeatureGuard 
+        feature="glassmorphism_ui" 
+        showPaywall={false}
+        gracefulDegradation={true}
+        fallback={
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none px-4">
+            <div className="bg-gray-800/90 backdrop-blur-sm px-4 py-2 md:px-6 md:py-3 rounded-full shadow-lg max-w-xs md:max-w-lg text-center border border-gray-600">
+              <p className="text-xs md:text-sm text-gray-300 font-medium flex items-center justify-center">
+                <span className="animate-pulse mr-2">📱</span>
+                <span className="truncate">{statusMessage}</span>
+                {isOffline && <span className="ml-2 text-yellow-400">📴</span>}
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none px-4">
+          <div className="glass-card glass-shimmer px-4 py-2 md:px-6 md:py-3 rounded-full shadow-2xl max-w-xs md:max-w-lg text-center border border-blue-500/30">
+            <p className="text-xs md:text-sm text-blue-300 font-medium flex items-center justify-center">
+              <span className="animate-pulse mr-2">✨</span>
+              <span className="truncate">{statusMessage}</span>
+              {isOffline && <span className="ml-2 text-yellow-400">📴</span>}
+            </p>
+          </div>
         </div>
-      </div>
+      </FeatureGuard>
 
-      {/* Floating Grid Toggle - Repositioned for mobile */}
-      <div className="fixed top-4 right-4 z-40">
-        <button
-          onClick={() => setShowGrid(!showGrid)}
-          className={`glass-button px-3 py-2 md:px-4 md:py-2 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 text-xs md:text-sm ${
-            showGrid ? 'glass-status-success' : 'glass-status-warning'
-          }`}
-        >
-          <span className="font-medium flex items-center">
-            📐 <span className="hidden sm:inline ml-1">{showGrid ? 'Grid ON' : 'Grid OFF'}</span>
-          </span>
-        </button>
-      </div>
-
-      {/* PWA Install Button for Desktop */}
-      {isInstallable && !isInstalled && !showInstallPrompt && (
-        <div className="fixed bottom-20 right-4 z-40 hidden md:block">
+      {/* Floating Grid Toggle - Protected by feature guard */}
+      <FeatureGuard feature="advanced_grid" showPaywall={false}>
+        <div className="fixed top-4 right-4 z-40">
           <button
-            onClick={() => setShowInstallPrompt(true)}
-            className="glass-button px-4 py-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 border border-purple-400/50"
+            onClick={() => setShowGrid(!showGrid)}
+            className={`glass-button px-3 py-2 md:px-4 md:py-2 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 text-xs md:text-sm ${
+              showGrid ? 'glass-status-success' : 'glass-status-warning'
+            }`}
           >
-            <span className="font-medium flex items-center text-purple-300">
-              <span className="animate-bounce mr-2">📱</span>
-              <span className="text-sm">Install App</span>
+            <span className="font-medium flex items-center">
+              📐 <span className="hidden sm:inline ml-1">{showGrid ? 'Grid ON' : 'Grid OFF'}</span>
             </span>
           </button>
         </div>
-      )}
+      </FeatureGuard>
+
+      {/* PWA Install Button for Desktop - Protected by feature guard */}
+      <FeatureGuard feature="premium_features" showPaywall={false}>
+        {isInstallable && !isInstalled && !showInstallPrompt && (
+          <div className="fixed bottom-20 right-4 z-40 hidden md:block">
+            <button
+              onClick={() => setShowInstallPrompt(true)}
+              className="glass-button px-4 py-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 border border-purple-400/50"
+            >
+              <span className="font-medium flex items-center text-purple-300">
+                <span className="animate-bounce mr-2">📱</span>
+                <span className="text-sm">Install App</span>
+              </span>
+            </button>
+          </div>
+        )}
+      </FeatureGuard>
     </div>
+  );
+};
+
+// Main App component wrapped with SubscriptionProvider
+const App: React.FC = () => {
+  return (
+    <SubscriptionProvider>
+      <AppContent />
+    </SubscriptionProvider>
   );
 };
 

@@ -22,3 +22,10 @@ export interface MarkNavigation {
   showAllMarks: boolean;
   currentMarkIndex: number;
 }
+
+// Additional interface for grid settings
+export interface GridSettings {
+  showGrid: boolean;
+  gridType: 'rule-of-thirds' | 'custom';
+  opacity: number;
+}
