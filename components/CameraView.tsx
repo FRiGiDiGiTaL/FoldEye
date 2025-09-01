@@ -126,63 +126,65 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [setStatusMessage]);
 
-  // Calculate video dimensions based on book dimensions
+  // Calculate video dimensions based on book dimensions with extra space for visibility
   const calculateVideoSize = useCallback(() => {
     const { heightCm, widthCm } = pageData;
     
     if (heightCm <= 0) {
-      return { width: 300, height: 400 };
+      return { width: 300, height: 400, bookAreaHeight: 380 };
     }
 
     const aspectRatio = widthCm > 0 ? widthCm / heightCm : 0.75;
     const isMobile = window.innerWidth < 768;
+    
+    // Add 10% extra height for better visibility of book edges
+    const extraHeightMultiplier = 1.1;
     
     if (isMobile) {
       // Mobile: Use safe area and ensure full visibility
       const safeWidth = Math.min(window.innerWidth - 32, 350); // 32px for padding
       const safeHeight = Math.min(window.innerHeight * 0.6, 450); // 60% of viewport
       
+      let bookAreaHeight = safeHeight / extraHeightMultiplier;
       let videoHeight = safeHeight;
-      let videoWidth = videoHeight * aspectRatio;
+      let videoWidth = bookAreaHeight * aspectRatio * extraHeightMultiplier;
       
       // If too wide, constrain by width
       if (videoWidth > safeWidth) {
         videoWidth = safeWidth;
-        videoHeight = videoWidth / aspectRatio;
+        bookAreaHeight = (videoWidth / aspectRatio) / extraHeightMultiplier;
+        videoHeight = bookAreaHeight * extraHeightMultiplier;
       }
       
-      return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
+      return { 
+        width: Math.round(videoWidth), 
+        height: Math.round(videoHeight),
+        bookAreaHeight: Math.round(bookAreaHeight)
+      };
     } else {
-      // Desktop sizing remains the same
+      // Desktop sizing with extra space
       const maxHeight = 500;
       const maxWidth = 400;
       
+      let bookAreaHeight = maxHeight / extraHeightMultiplier;
       let videoHeight = maxHeight;
-      let videoWidth = videoHeight * aspectRatio;
+      let videoWidth = bookAreaHeight * aspectRatio * extraHeightMultiplier;
       
       if (videoWidth > maxWidth) {
         videoWidth = maxWidth;
-        videoHeight = videoWidth / aspectRatio;
+        bookAreaHeight = (videoWidth / aspectRatio) / extraHeightMultiplier;
+        videoHeight = bookAreaHeight * extraHeightMultiplier;
       }
       
-      return { width: Math.round(videoWidth), height: Math.round(videoHeight) };
+      return { 
+        width: Math.round(videoWidth), 
+        height: Math.round(videoHeight),
+        bookAreaHeight: Math.round(bookAreaHeight)
+      };
     }
   }, [pageData.heightCm, pageData.widthCm]);
 
   const videoSize = calculateVideoSize();
-
-  // Manual calibration function
-  const handleCalibrate = useCallback(() => {
-    if (pageData.heightCm > 0 && videoSize.height > 0) {
-      const pixelsPerCm = videoSize.height / pageData.heightCm;
-      setCalibrationData({ pixelsPerCm });
-      setStatusMessage(`✨ AR Calibrated! Video height (${videoSize.height}px) = ${pageData.heightCm}cm. Enhanced features active.`);
-      addDebugLog(`✓ Manual calibration: ${pixelsPerCm.toFixed(2)} pixels/cm`);
-      onCalibrate();
-    } else {
-      setStatusMessage("Please enter book height before calibrating.");
-    }
-  }, [pageData.heightCm, videoSize.height, setCalibrationData, setStatusMessage, onCalibrate]);
 
   // Check permissions on component mount
   useEffect(() => {
@@ -206,6 +208,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               addDebugLog('✓ Video metadata loaded');
               addDebugLog(`Video: ${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight}`);
               addDebugLog(`Display: ${videoSize.width}x${videoSize.height}`);
+              addDebugLog(`Book Area: ${videoSize.width}x${videoSize.bookAreaHeight}`);
               setVideoReady(true);
               setStatusMessage("✨ Enhanced AR Camera ready! Voice control and visual effects active.");
             };
@@ -230,7 +233,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
       setDebugLogs([]);
       setPermissionStatus('prompt');
     }
-  }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height, requestCameraPermission]);
+  }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height, videoSize.bookAreaHeight, requestCameraPermission]);
 
   return (
     <div
@@ -260,6 +263,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
             <div className="px-3 pb-3 space-y-1 text-green-400 border-t border-gray-600/30 pt-2">
               <div>📖 Book: {pageData.heightCm}cm × {pageData.widthCm}cm</div>
               <div>📺 Video: {videoSize.width}×{videoSize.height}px</div>
+              <div>📏 Book Area: {videoSize.width}×{videoSize.bookAreaHeight}px</div>
               <div className="flex items-center">
                 📷 Camera: 
                 <span className={`ml-1 font-semibold ${isCameraActive ? 'text-green-400' : 'text-red-400'}`}>
@@ -385,9 +389,17 @@ export const CameraView: React.FC<CameraViewProps> = ({
             </div>
           )}
           
-          {/* Enhanced corner guides */}
+          {/* Enhanced corner guides with top and right alignment lines */}
           {videoReady && pageData.heightCm > 0 && (
             <div className="absolute inset-0 pointer-events-none">
+              {/* Top edge alignment line - where book's top should rest */}
+              <div 
+                className="absolute left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 opacity-90 shadow-lg animate-pulse"
+                style={{ 
+                  top: `${(videoSize.height - videoSize.bookAreaHeight) / 2}px`
+                }}
+              ></div>
+              
               {/* Animated right edge reference line */}
               <div className="absolute top-0 bottom-0 -right-0.5 w-1 bg-gradient-to-b from-yellow-400 via-yellow-500 to-yellow-600 opacity-80 shadow-lg animate-pulse"></div>
               
@@ -395,7 +407,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               {!calibrationData.pixelsPerCm && (
                 <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-center">
                   <div className="glass-status-warning px-4 py-2 rounded-lg text-sm font-bold shadow-xl animate-bounce">
-                    <span className="animate-pulse">⚡</span> Align Book's Right Edge with Yellow Line
+                    <span className="animate-pulse">⚡</span> Align Book's Top with Yellow Line & Right Edge with Side Line
                   </div>
                 </div>
               )}
@@ -498,7 +510,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
             </div>
           )}
 
-          {/* Clean Cut marks with opacity-based visibility */}
+          {/* Clean Cut marks with opacity-based visibility - positioned relative to book area */}
           {calibrationData.pixelsPerCm && marksCm.length > 0 && videoReady && (
             <div className="absolute inset-0 pointer-events-none z-5">
               {marksCm.map((markValue, index) => {
@@ -507,7 +519,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 }
 
                 const relativePosition = markValue / pageData.heightCm;
-                const yPosition = relativePosition * videoSize.height;
+                const bookAreaTop = (videoSize.height - videoSize.bookAreaHeight) / 2;
+                const yPosition = bookAreaTop + (relativePosition * videoSize.bookAreaHeight);
                 
                 const shouldRenderMark = markNavigation.showAllMarks || index === markNavigation.currentMarkIndex;
                 if (!shouldRenderMark) return null;
