@@ -10,10 +10,7 @@
     "static/chunks/fallback/amp.js"
   ],
   "lowPriorityFiles": [],
-  "rootMainFiles": [
-    "static/chunks/fallback/webpack.js",
-    "static/chunks/fallback/main-app.js"
-  ],
+  "rootMainFiles": [],
   "rootMainFilesTree": {},
   "pages": {
     "/_app": [

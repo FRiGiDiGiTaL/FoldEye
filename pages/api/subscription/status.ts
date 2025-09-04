@@ -1,6 +1,7 @@
+// pages/api/subscription/status.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { parse } from "cookie";
+import cookie from "cookie";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -8,31 +9,51 @@ const supabase = createClient(
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   try {
-    const cookies = parse(req.headers.cookie || "");
+    // 1. Get userId from cookie
+    const cookies = cookie.parse(req.headers.cookie || "");
     const userId = cookies[process.env.COOKIE_NAME!];
 
     if (!userId) {
-      return res.status(200).json({ subscription_status: "free" });
+      return res.status(200).json({
+        subscription_status: "free",
+        plan_type: "free",
+        trial_end: null,
+      });
     }
 
-    const { data, error } = await supabase
+    // 2. Load user from Supabase
+    const { data: users, error } = await supabase
       .from("users")
-      .select("subscription_status, trial_end")
+      .select("subscription_status, trial_end, plan_type")
       .eq("id", userId)
-      .single();
+      .limit(1);
 
-    if (error || !data) {
-      console.error("Supabase query error:", error);
-      return res.status(200).json({ subscription_status: "free" });
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: "Failed to load subscription" });
     }
 
+    if (!users || users.length === 0) {
+      return res.status(200).json({
+        subscription_status: "free",
+        plan_type: "free",
+        trial_end: null,
+      });
+    }
+
+    const user = users[0];
     return res.status(200).json({
-      subscription_status: data.subscription_status || "free",
-      trial_end: data.trial_end || null,
+      subscription_status: user.subscription_status || "free",
+      trial_end: user.trial_end,
+      plan_type: user.plan_type || "free",
     });
-  } catch (err) {
-    console.error("Status API error:", err);
-    return res.status(500).json({ subscription_status: "free" });
+  } catch (err: any) {
+    console.error("❌ Subscription status error:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

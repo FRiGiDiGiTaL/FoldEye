@@ -1,7 +1,7 @@
 {
   "name": "ar-book-folding-assistant",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,24 +14,20 @@
     "@supabase/supabase-js": "^2.57.0",
     "aframe": "^1.7.1",
     "axios": "^1.11.0",
-    "cookie": "^0.6.0",
     "js-cookie": "^3.0.5",
-    "next": "^14.2.15",
-    "next-auth": "^4.24.11",
+    "next": "^15.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "stripe": "^18.5.0",
     "three": "^0.179.1"
   },
   "devDependencies": {
-    "@types/cookie": "^0.6.0",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
-    "@types/stripe": "^8.0.416",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.15",
-    "typescript": "~5.8.2"
+    "typescript": "^5.8.2",
+    "eslint": "^9.13.0",
+    "eslint-config-next": "^15.0.0"
   }
 }
