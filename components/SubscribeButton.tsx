@@ -1,45 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
+
+interface SubscribeButtonProps {
+  priceId: string;
+  onLoading?: (state: boolean) => void;
+  disabled?: boolean;
+  label?: string; // ✅ new prop
+}
 
 export default function SubscribeButton({
   priceId,
   onLoading,
   disabled,
-}: {
-  priceId: string;
-  onLoading?: (state: boolean) => void;
-  disabled?: boolean;
-}) {
-  const handleSubscribe = async () => {
+  label = "Subscribe", // ✅ default
+}: SubscribeButtonProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
     try {
+      setLoading(true);
       onLoading?.(true);
 
-      const res = await fetch("/api/subscription/create-checkout", {
+      const res = await fetch("/api/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priceId }),
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
 
       if (data.url) {
         window.location.href = data.url;
-      } else {
-        console.error("No checkout URL returned:", data);
       }
     } catch (err) {
-      console.error("Subscribe error:", err);
+      console.error("❌ Subscribe error:", err);
+      alert("Error starting subscription. Please try again.");
     } finally {
+      setLoading(false);
       onLoading?.(false);
     }
   };
 
   return (
     <button
-      onClick={handleSubscribe}
-      disabled={disabled}
-      className="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 disabled:opacity-50"
+      onClick={handleClick}
+      disabled={disabled || loading}
+      className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow hover:opacity-90 transition disabled:opacity-50"
     >
-      {disabled ? "Redirecting..." : "Subscribe Now"}
+      {loading ? "Processing..." : label}
     </button>
   );
 }
