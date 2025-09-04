@@ -1,38 +1,39 @@
-import React from 'react';
-import { useSubscription } from '../hooks/useSubscription';
-import PaywallModal from './PaywallModal';
+import React from "react";
+import { useSubscription } from "../hooks/useSubscription";
+import PaywallModal from "./PaywallModal";
+import TrialBanner from "./TrialBanner";
 
 interface FeatureGuardProps {
-  feature: string;
-  showPaywall?: boolean;
-  fallback?: React.ReactNode;
   children: React.ReactNode;
-  gracefulDegradation?: boolean;
+  requirePro?: boolean; // default true: everything requires trial or subscription
 }
 
-export const FeatureGuard: React.FC<FeatureGuardProps> = ({
-  feature,
-  showPaywall = true,
-  fallback = null,
-  children,
-  gracefulDegradation = false,
-}) => {
-  const subscription = useSubscription();
+export default function FeatureGuard({ children, requirePro = true }: FeatureGuardProps) {
+  const { subscription, loading } = useSubscription();
 
-  const hasAccess =
-    subscription.isSubscribed || subscription.trialActive || !showPaywall;
+  if (loading) {
+    return <div>Loading...</div>; // TODO: replace with spinner if you want
+  }
 
-  if (hasAccess) {
+  const status = subscription?.status || "free";
+
+  // If this content does not require pro/trial/subscription → always allow
+  if (!requirePro) {
     return <>{children}</>;
   }
 
-  if (showPaywall) {
-    return <PaywallModal />;
+  // Allowed if active subscription or trialing
+  if (status === "active" || status === "trialing") {
+    return (
+      <>
+        {status === "trialing" && subscription?.trialEnds && (
+          <TrialBanner trialEnds={subscription.trialEnds} />
+        )}
+        {children}
+      </>
+    );
   }
 
-  if (gracefulDegradation) {
-    return <>{fallback}</>;
-  }
-
-  return null;
-};
+  // Otherwise block and show paywall
+  return <PaywallModal />;
+}

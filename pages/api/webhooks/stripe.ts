@@ -1,233 +1,113 @@
-// api/webhooks/stripe.ts
-import { NextApiRequest, NextApiResponse } from 'next';
-import Stripe from 'stripe';
-import { buffer } from 'micro';
+import type { NextApiRequest, NextApiResponse } from "next";
+import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-// Disable body parsing for webhook
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Stripe requires raw body
   },
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2022-11-15",
+});
 
-  const buf = await buffer(req);
-  const sig = req.headers['stripe-signature'] as string;
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Helper to get raw body for webhook verification
+async function getRawBody(req: NextApiRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", (err) => reject(err));
+  });
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const sig = req.headers["stripe-signature"] as string | undefined;
+  if (!sig) return res.status(400).send("Missing Stripe signature");
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+    const buf = await getRawBody(req);
+    event = stripe.webhooks.constructEvent(
+      buf,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    console.error("❌ Webhook signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
-        break;
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = session.metadata?.userId as string | undefined;
 
-      case 'customer.subscription.created':
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription);
-        break;
+        if (userId && session.customer) {
+          await supabase
+            .from("users")
+            .update({
+              stripe_customer_id: session.customer.toString(),
+              subscription_status: "active",
+              plan_type: "paid",
+            })
+            .eq("id", userId);
 
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+          console.log(`✅ User ${userId} upgraded to active`);
+        }
         break;
+      }
 
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-        break;
+      case "customer.subscription.updated":
+      case "customer.subscription.created": {
+        const sub = event.data.object as Stripe.Subscription;
+        const customerId = sub.customer.toString();
+        const status = sub.status; // active, past_due, canceled, etc.
 
-      case 'invoice.payment_succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
-        break;
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: status,
+            plan_type: "paid",
+          })
+          .eq("stripe_customer_id", customerId);
 
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        console.log(`🔄 Subscription update: ${customerId} -> ${status}`);
         break;
+      }
 
-      case 'customer.subscription.trial_will_end':
-        await handleTrialWillEnd(event.data.object as Stripe.Subscription);
+      case "customer.subscription.deleted":
+      case "customer.subscription.canceled": {
+        const sub = event.data.object as Stripe.Subscription;
+        const customerId = sub.customer.toString();
+
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: "canceled",
+            plan_type: "free",
+          })
+          .eq("stripe_customer_id", customerId);
+
+        console.log(`🛑 Subscription canceled: ${customerId}`);
         break;
+      }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`Unhandled event: ${event.type}`);
     }
 
-    res.status(200).json({ received: true });
-  } catch (error: any) {
-    console.error('Webhook handler error:', error);
-    res.status(500).json({ error: 'Webhook handler failed' });
+    res.json({ received: true });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).send("Webhook handler failed");
   }
-}
-
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  console.log('Checkout completed:', session.id);
-  
-  const userId = session.client_reference_id || session.metadata?.userId;
-  const customerId = session.customer as string;
-  
-  if (!userId) {
-    console.warn('No user ID found in checkout session');
-    return;
-  }
-
-  // Update user record in your database
-  await updateUserSubscription(userId, {
-    customerId,
-    subscriptionId: session.subscription as string,
-    status: 'active',
-    planType: session.mode === 'payment' ? 'lifetime' : 'subscription',
-    trialEnd: null // Trial starts after checkout completion
-  });
-
-  // Send welcome email (optional)
-  await sendWelcomeEmail(userId, session.customer_details?.email);
-}
-
-async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
-  console.log('Subscription created:', subscription.id);
-  
-  const userId = subscription.metadata.userId;
-  if (!userId) return;
-
-  await updateUserSubscription(userId, {
-    subscriptionId: subscription.id,
-    customerId: subscription.customer as string,
-    status: subscription.status,
-    planType: subscription.items.data[0].price.recurring?.interval === 'month' ? 'monthly' : 'yearly',
-    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-    cancelAtPeriodEnd: subscription.cancel_at_period_end
-  });
-}
-
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  console.log('Subscription updated:', subscription.id);
-  
-  const userId = subscription.metadata.userId;
-  if (!userId) return;
-
-  await updateUserSubscription(userId, {
-    subscriptionId: subscription.id,
-    status: subscription.status,
-    planType: subscription.items.data[0].price.recurring?.interval === 'month' ? 'monthly' : 'yearly',
-    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-    cancelAtPeriodEnd: subscription.cancel_at_period_end
-  });
-}
-
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  console.log('Subscription deleted:', subscription.id);
-  
-  const userId = subscription.metadata.userId;
-  if (!userId) return;
-
-  await updateUserSubscription(userId, {
-    subscriptionId: null,
-    status: 'cancelled',
-    planType: 'free',
-    trialEnd: null,
-    currentPeriodEnd: null,
-    cancelAtPeriodEnd: false
-  });
-}
-
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  console.log('Payment succeeded:', invoice.id);
-  
-  if (invoice.subscription) {
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
-    const userId = subscription.metadata.userId;
-    
-    if (userId) {
-      await updateUserSubscription(userId, {
-        status: 'active',
-        lastPaymentDate: new Date(),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000)
-      });
-    }
-  }
-}
-
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  console.log('Payment failed:', invoice.id);
-  
-  if (invoice.subscription) {
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
-    const userId = subscription.metadata.userId;
-    
-    if (userId) {
-      await updateUserSubscription(userId, {
-        status: 'past_due'
-      });
-      
-      // Send payment failed email (optional)
-      await sendPaymentFailedEmail(userId, invoice.customer_email);
-    }
-  }
-}
-
-async function handleTrialWillEnd(subscription: Stripe.Subscription) {
-  console.log('Trial ending soon:', subscription.id);
-  
-  const userId = subscription.metadata.userId;
-  if (!userId) return;
-
-  // Send trial ending email (optional)
-  await sendTrialEndingEmail(userId, subscription.customer as string);
-}
-
-// Database helper functions - implement based on your database
-async function updateUserSubscription(userId: string, data: any) {
-  // Example with Prisma:
-  // await prisma.user.update({
-  //   where: { id: userId },
-  //   data: {
-  //     stripeCustomerId: data.customerId,
-  //     stripeSubscriptionId: data.subscriptionId,
-  //     subscriptionStatus: data.status,
-  //     planType: data.planType,
-  //     trialEnd: data.trialEnd,
-  //     currentPeriodEnd: data.currentPeriodEnd,
-  //     cancelAtPeriodEnd: data.cancelAtPeriodEnd,
-  //     lastPaymentDate: data.lastPaymentDate
-  //   }
-  // });
-
-  // Example with MongoDB:
-  // await db.collection('users').updateOne(
-  //   { _id: userId },
-  //   { $set: data }
-  // );
-
-  console.log(`Would update user ${userId} with:`, data);
-}
-
-async function sendWelcomeEmail(userId: string, email: string | null) {
-  // Implement your email service (SendGrid, Resend, etc.)
-  console.log(`Would send welcome email to ${email} for user ${userId}`);
-}
-
-async function sendPaymentFailedEmail(userId: string, email: string | null) {
-  console.log(`Would send payment failed email to ${email} for user ${userId}`);
-}
-
-async function sendTrialEndingEmail(userId: string, customerId: string) {
-  const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
-  console.log(`Would send trial ending email to ${customer.email} for user ${userId}`);
 }

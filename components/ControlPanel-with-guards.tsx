@@ -4,7 +4,7 @@ import { CameraIcon, RulerIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon
 import { VoiceControl } from './VoiceControl';
 import { GridControls } from './GridLines';
 import { PDFImport } from './PDFImport';
-import { FeatureGuard } from './FeatureGuard';
+import FeatureGuard from './FeatureGuard';
 
 interface ControlPanelProps {
   isCameraActive: boolean;
@@ -513,7 +513,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           {/* Grid Controls - Premium Feature */}
-          <FeatureGuard feature="advanced_grid">
+          <FeatureGuard>
             <GridControls
               isVisible={showGrid}
               onToggle={() => setShowGrid(!showGrid)}
@@ -539,7 +539,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </CollapsibleSection>
 
         {/* Enhanced Voice Control - Premium Feature */}
-        <FeatureGuard feature="voice_control">
+        <FeatureGuard>
           <CollapsibleSection
             stepNumber={3}
             title="Voice Control"
@@ -682,8 +682,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </CollapsibleSection>
 
         {/* PDF Import Section - Premium Feature */}
-        <FeatureGuard feature="pdf_import">
-          <CollapsibleSection
+        <FeatureGuard>          <CollapsibleSection
             stepNumber={5}
             title="PDF Import"
             instruction="Upload a PDF with book folding instructions to automatically extract measurements."
@@ -795,14 +794,3 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     </aside>
   );
 };
-
-// Main App component wrapped with SubscriptionProvider
-const App: React.FC = () => {
-  return (
-    <SubscriptionProvider>
-      <AppContent />
-    </SubscriptionProvider>
-  );
-};
-
-export default App;
