@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import cookie from "cookie";
+import { parse } from "cookie";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -9,26 +9,30 @@ const supabase = createClient(
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const cookies = cookie.parse(req.headers.cookie || "");
+    const cookies = parse(req.headers.cookie || "");
     const userId = cookies[process.env.COOKIE_NAME!];
 
     if (!userId) {
-      return res.status(401).json({ error: "Not authenticated" });
+      return res.status(200).json({ subscription_status: "free" });
     }
 
-    const { data: users, error } = await supabase
+    const { data, error } = await supabase
       .from("users")
-      .select("subscription_status, trial_end, plan_type")
+      .select("subscription_status, trial_end")
       .eq("id", userId)
-      .limit(1);
+      .single();
 
-    if (error || !users?.length) {
-      return res.status(404).json({ error: "User not found" });
+    if (error || !data) {
+      console.error("Supabase query error:", error);
+      return res.status(200).json({ subscription_status: "free" });
     }
 
-    return res.status(200).json(users[0]);
-  } catch (err: any) {
-    console.error("status API error:", err.message);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(200).json({
+      subscription_status: data.subscription_status || "free",
+      trial_end: data.trial_end || null,
+    });
+  } catch (err) {
+    console.error("Status API error:", err);
+    return res.status(500).json({ subscription_status: "free" });
   }
 }

@@ -1,12 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { ControlPanel } from "./components/ControlPanel";
 import { CameraView } from "./components/CameraView";
-import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
-import { PWAStatusIndicator } from "./components/PWAStatusIndicator";
 import TrialBanner from "./components/TrialBanner";
 import FeatureGuard from "./components/FeatureGuard";
 import { useSubscription } from "./hooks/useSubscription";
-import { usePWA } from "./hooks/usePWA";
 import type { PageData, CalibrationData, Transform, MarkNavigation } from "./types";
 
 // Import the glassmorphism styles
@@ -85,21 +82,6 @@ const AppContent: React.FC = () => {
     return true;
   }, [subscription]);
 
-  // PWA Hook
-  const {
-    isInstallable,
-    isInstalled,
-    isOffline,
-    updateAvailable,
-    installApp,
-    updateApp,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  // PWA state
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-  const [isInstalling, setIsInstalling] = useState(false);
-
   const initialInstructionsText = `PAGE        Measurements in CM
 # Example pattern below - try PDF import for easier setup!
 17-18        0.5, 7.9, 8.0, 9.6, 9.8, 10.0, 10.1, 20.5
@@ -136,82 +118,6 @@ const AppContent: React.FC = () => {
 
   // Particle effects state
   const [triggerParticles, setTriggerParticles] = useState<boolean>(false);
-
-  // PWA Install Prompt Logic
-  useEffect(() => {
-    if (isInstallable && !isInstalled) {
-      const timer = setTimeout(() => {
-        setShowInstallPrompt(true);
-      }, 10000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isInstallable, isInstalled]);
-
-  // Handle PWA shortcuts
-  useEffect(() => {
-    const handlePWAShortcuts = () => {
-      if (sessionStorage.getItem("pwa-auto-camera") === "true") {
-        setIsCameraActive(true);
-        setStatusMessage("📱 PWA: Camera shortcut activated!");
-        sessionStorage.removeItem("pwa-auto-camera");
-      }
-
-      if (sessionStorage.getItem("pwa-auto-voice") === "true") {
-        setStatusMessage("🎤 PWA: Voice control shortcut activated!");
-        sessionStorage.removeItem("pwa-auto-voice");
-      }
-    };
-
-    handlePWAShortcuts();
-
-    const handleCameraShortcut = () => {
-      setIsCameraActive(true);
-      setStatusMessage("📱 PWA: Camera activated via shortcut!");
-    };
-
-    const handleVoiceShortcut = () => {
-      setStatusMessage("🎤 PWA: Voice control activated via shortcut!");
-    };
-
-    window.addEventListener("pwa-camera-shortcut", handleCameraShortcut);
-    window.addEventListener("pwa-voice-shortcut", handleVoiceShortcut);
-
-    return () => {
-      window.removeEventListener("pwa-camera-shortcut", handleCameraShortcut);
-      window.removeEventListener("pwa-voice-shortcut", handleVoiceShortcut);
-    };
-  }, []);
-
-  // PWA Install Handler
-  const handleInstallPWA = async () => {
-    setIsInstalling(true);
-    try {
-      const success = await installApp();
-      if (success) {
-        setShowInstallPrompt(false);
-        setStatusMessage("🎉 BookfoldAR installed successfully! Check your home screen.");
-      } else {
-        setStatusMessage("❌ Installation cancelled or failed.");
-      }
-    } catch (error) {
-      console.error("Install error:", error);
-      setStatusMessage("❌ Installation error occurred.");
-    } finally {
-      setIsInstalling(false);
-    }
-  };
-
-  // PWA Update Handler
-  const handleUpdatePWA = async () => {
-    try {
-      await updateApp();
-      setStatusMessage("🔄 App updated! Changes will apply after refresh.");
-    } catch (error) {
-      console.error("Update error:", error);
-      setStatusMessage("❌ Update failed. Please try again.");
-    }
-  };
 
   const handleInstructionsTextChange = useCallback((text: string) => {
     const newParsedInstructions = parseInstructions(text);
@@ -351,24 +257,6 @@ const AppContent: React.FC = () => {
       {subscription?.status === "trialing" && subscription?.trialEnds && (
         <TrialBanner trialEnds={subscription.trialEnds} />
       )}
-
-      {/* PWA Status Indicators */}
-      <PWAStatusIndicator
-        isOffline={isOffline}
-        updateAvailable={updateAvailable}
-        onUpdate={handleUpdatePWA}
-      />
-
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt
-        isVisible={showInstallPrompt && !isInstalled}
-        onInstall={handleInstallPWA}
-        onDismiss={() => {
-          setShowInstallPrompt(false);
-          dismissInstallPrompt();
-        }}
-        isInstalling={isInstalling}
-      />
 
       {/* Control Panel */}
       <ControlPanel

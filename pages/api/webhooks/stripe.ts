@@ -2,14 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-export const config = {
-  api: {
-    bodyParser: false, // Stripe requires raw body
-  },
-};
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2022-11-15",
+  // Your local Stripe typings expect "2025-08-27.basil"
+  // Cast to `any` so TypeScript doesn’t complain
+  apiVersion: "2025-08-27.basil" as any,
 });
 
 const supabase = createClient(
@@ -17,27 +13,36 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper to get raw body for webhook verification
-async function getRawBody(req: NextApiRequest): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", (err) => reject(err));
-  });
+export const config = {
+  api: {
+    bodyParser: false, // Stripe requires raw body
+  },
+};
+
+// Helper to read raw body
+async function buffer(readable: any) {
+  const chunks = [];
+  for await (const chunk of readable) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const sig = req.headers["stripe-signature"] as string | undefined;
-  if (!sig) return res.status(400).send("Missing Stripe signature");
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).end("Method Not Allowed");
+  }
+
+  const buf = await buffer(req);
+  const sig = req.headers["stripe-signature"];
 
   let event: Stripe.Event;
 
   try {
-    const buf = await getRawBody(req);
     event = stripe.webhooks.constructEvent(
       buf,
-      sig,
+      sig as string,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
@@ -49,65 +54,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId as string | undefined;
+        const userId = session.metadata?.userId;
 
-        if (userId && session.customer) {
+        if (userId) {
           await supabase
             .from("users")
             .update({
-              stripe_customer_id: session.customer.toString(),
               subscription_status: "active",
-              plan_type: "paid",
+              plan_type: "pro",
             })
             .eq("id", userId);
-
-          console.log(`✅ User ${userId} upgraded to active`);
         }
         break;
       }
 
-      case "customer.subscription.updated":
-      case "customer.subscription.created": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = sub.customer.toString();
-        const status = sub.status; // active, past_due, canceled, etc.
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
 
-        await supabase
-          .from("users")
-          .update({
-            subscription_status: status,
-            plan_type: "paid",
-          })
-          .eq("stripe_customer_id", customerId);
+        if (userId) {
+          const status =
+            subscription.status === "active" ? "active" : "canceled";
 
-        console.log(`🔄 Subscription update: ${customerId} -> ${status}`);
+          await supabase
+            .from("users")
+            .update({ subscription_status: status })
+            .eq("id", userId);
+        }
         break;
       }
 
-      case "customer.subscription.deleted":
-      case "customer.subscription.canceled": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = sub.customer.toString();
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
 
-        await supabase
-          .from("users")
-          .update({
-            subscription_status: "canceled",
-            plan_type: "free",
-          })
-          .eq("stripe_customer_id", customerId);
-
-        console.log(`🛑 Subscription canceled: ${customerId}`);
+        if (userId) {
+          await supabase
+            .from("users")
+            .update({ subscription_status: "canceled" })
+            .eq("id", userId);
+        }
         break;
       }
 
       default:
-        console.log(`Unhandled event: ${event.type}`);
+        console.log(`Unhandled event type ${event.type}`);
     }
 
     res.json({ received: true });
   } catch (err) {
-    console.error("Webhook error:", err);
-    res.status(500).send("Webhook handler failed");
+    console.error("❌ Webhook handler error:", err);
+    res.status(500).send("Internal Server Error");
   }
 }

@@ -4,7 +4,8 @@ import Stripe from "stripe";
 import cookie from "cookie";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2022-11-15",
+  // Fix TS error: cast the version to `any`
+  apiVersion: "2025-08-27.basil" as any,
 });
 
 const supabase = createClient(
