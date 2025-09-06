@@ -7,8 +7,6 @@ import { useSubscription } from "./hooks/useSubscription";
 import type { PageData, CalibrationData, Transform, MarkNavigation } from "./types";
 
 // Import the glassmorphism styles
-import "./glassmorphism.css";
-
 const parseInstructions = (text: string): string[] => {
   const lines = text.split("\n");
   const instructionsMap = new Map<number, string>();

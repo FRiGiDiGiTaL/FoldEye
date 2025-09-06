@@ -1,10 +1,12 @@
+/* Tailwind layers must come first */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Import your glassmorphism theme after Tailwind */
 @import '../glassmorphism.css';
 
-/* Additional global styles for enhanced AR experience */
+/* Your existing styles below... */
 * {
   box-sizing: border-box;
 }
@@ -28,6 +30,9 @@ html, body {
   height: 100%;
   min-height: 100vh;
 }
+
+/* … keep the rest of your custom styles … */
+
 
 /* Enhanced scrollbar styling */
 ::-webkit-scrollbar {
