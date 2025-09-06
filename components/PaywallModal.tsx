@@ -1,115 +1,143 @@
-import React, { useState } from "react";
-import SubscribeButton from "./SubscribeButton";
+// components/PaywallModal.tsx
+import { useState } from 'react';
 
 interface PaywallModalProps {
-  title?: string;
-  message?: string;
-  onStartTrial?: () => Promise<void>;
-  onClose?: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  feature: string;
 }
 
-export default function PaywallModal({
-  title = "Upgrade to unlock this feature",
-  message = "Start your free trial or subscribe to access all premium overlays.",
-  onStartTrial,
-  onClose,
-}: PaywallModalProps) {
-  const [loading, setLoading] = useState(false);
+export default function PaywallModal({ isOpen, onClose, feature }: PaywallModalProps) {
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Use the monthly price ID from your .env.local
-  const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY!;
+  if (!isOpen) return null;
 
-  // Add debugging to help troubleshoot
-  console.log("PaywallModal - Price ID:", PRICE_ID);
-
-  const handleClose = () => {
-    if (onClose) {
-      onClose();
-    } else {
-      console.log("Modal close requested - no onClose handler provided");
-    }
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const handleStartTrial = async () => {
-    if (onStartTrial) {
-      try {
-        setLoading(true);
-        await onStartTrial();
-      } catch (error) {
-        console.error("Trial start error:", error);
-      } finally {
-        setLoading(false);
+    setError('');
+    
+    // Validate email
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/start-trial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to start trial');
       }
-    } else {
-      console.log("Start trial requested - no onStartTrial handler provided");
+
+      const data = await res.json();
+      console.log('Trial started:', data);
+      
+      // Close modal and reload to refresh subscription state
+      onClose();
+      window.location.reload();
+      
+    } catch (error: any) {
+      console.error('Trial start error:', error);
+      setError(error.message || 'Failed to start trial. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative">
-        {/* Optional close button */}
-        {onClose && (
-          <button 
-            onClick={handleClose}
-            disabled={loading}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold disabled:opacity-50"
-          >
-            ×
-          </button>
-        )}
-        
-        <div className="mb-6">
-          {/* Icon */}
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-            <span className="text-2xl">🚀</span>
-          </div>
-          
-          <h2 className="text-2xl font-bold mb-3 text-gray-900">{title}</h2>
-          <p className="text-gray-600 text-lg leading-relaxed">{message}</p>
-        </div>
+  const handleUpgrade = () => {
+    // Redirect to pricing page or open subscription flow
+    window.location.href = '/pricing';
+  };
 
-        <div className="space-y-4">
-          {/* Primary Subscribe Button */}
-          <SubscribeButton
-            priceId={PRICE_ID}
-            onLoading={setLoading}
-            disabled={loading || !PRICE_ID}
-          />
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Unlock {feature}
+          </h2>
           
-          {/* Start Trial Button (if onStartTrial is provided) */}
-          {onStartTrial && (
-            <button
-              onClick={handleStartTrial}
-              disabled={loading}
-              className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Starting Trial..." : "Start Free Trial"}
-            </button>
-          )}
-          
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-2">
-              Cancel anytime. Secure payments by Stripe.
-            </p>
-            
-            {/* Show pricing info */}
-            <p className="text-xs text-gray-400">
-              Monthly subscription • Full access to all features
-            </p>
+          <p className="text-gray-600 mb-6">
+            This feature requires a subscription. Start your free 7-day trial to continue!
+          </p>
+
+          {/* Email Input */}
+          <div className="mb-4">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 text-left">
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isLoading}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleStartTrial();
+                }
+              }}
+            />
           </div>
-          
-          {/* Error state */}
-          {!PRICE_ID && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-600 text-sm font-medium">
-                ⚠️ Configuration Error
-              </p>
-              <p className="text-red-500 text-xs mt-1">
-                Price ID not configured. Check environment variables.
-              </p>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
             </div>
           )}
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={handleStartTrial}
+              disabled={isLoading || !email.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-md transition-colors"
+            >
+              {isLoading ? 'Starting Trial...' : 'Start Free Trial'}
+            </button>
+            
+            <button
+              onClick={handleUpgrade}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition-colors"
+            >
+              View Pricing Plans
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* Trust Indicators */}
+          <div className="mt-4 text-xs text-gray-500">
+            <p>✓ No credit card required</p>
+            <p>✓ Cancel anytime during trial</p>
+            <p>✓ Full access to all features</p>
+          </div>
         </div>
       </div>
     </div>

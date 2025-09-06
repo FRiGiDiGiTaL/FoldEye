@@ -58,15 +58,15 @@ type ApiRouteConfig = {
   handler satisfies ApiRouteConfig
 }
 
-// Validate ../pages/api/start-trial.ts
+// Validate ../pages/api/create-checkout.ts
 {
-  const handler = {} as typeof import("../pages/api/start-trial.js")
+  const handler = {} as typeof import("../pages/api/create-checkout.js")
   handler satisfies ApiRouteConfig
 }
 
-// Validate ../pages/api/subscription/create-checkout.ts
+// Validate ../pages/api/start-trial.ts
 {
-  const handler = {} as typeof import("../pages/api/subscription/create-checkout.js")
+  const handler = {} as typeof import("../pages/api/start-trial.js")
   handler satisfies ApiRouteConfig
 }
 
