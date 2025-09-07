@@ -1,9 +1,35 @@
-import React, { useState, useCallback } from 'react';
-import type { PageData, CalibrationData, Transform, MarkNavigation } from '../types';
-import { CameraIcon, RulerIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon } from './Icons';
-import { VoiceControl } from './VoiceControl';
-import { GridControls } from './GridLines';
-import { PDFImport } from './PDFImport';
+import React, { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
+import type {
+  PageData,
+  CalibrationData,
+  Transform,
+  MarkNavigation,
+} from "../types";
+import {
+  CameraIcon,
+  RulerIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  EyeIcon,
+} from "./Icons";
+import { GridControls } from "./GridLines";
+import { PDFImport } from "./PDFImport";
+
+// VoiceControl is client-only (microphone access), so load dynamically
+const VoiceControl = dynamic(
+  () => import("./VoiceControl").then(mod => ({ default: mod.VoiceControl })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="glass-card rounded-lg p-4 text-center">
+        <div className="text-gray-400 text-sm">Loading voice controls...</div>
+      </div>
+    )
+  }
+);
 
 interface ControlPanelProps {
   isCameraActive: boolean;
@@ -19,14 +45,14 @@ interface ControlPanelProps {
   setTransform: React.Dispatch<React.SetStateAction<Transform>>;
   markNavigation: MarkNavigation;
   currentMarksCm: number[];
-  handleMarkNavigation: (action: 'next' | 'prev' | 'toggleAll') => void;
+  handleMarkNavigation: (action: "next" | "prev" | "toggleAll") => void;
   handleNextPage: () => void;
   handlePrevPage: () => void;
   onCalibrate: () => void;
   showGrid: boolean;
   setShowGrid: (show: boolean) => void;
-  gridType: 'rule-of-thirds' | 'quarters' | 'golden-ratio';
-  setGridType: (type: 'rule-of-thirds' | 'quarters' | 'golden-ratio') => void;
+  gridType: "rule-of-thirds" | "quarters" | "golden-ratio";
+  setGridType: (type: "rule-of-thirds" | "quarters" | "golden-ratio") => void;
   gridOpacity: number;
   setGridOpacity: (opacity: number) => void;
 }
@@ -48,7 +74,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   isExpanded,
   onToggle,
   isComplete = false,
-  children
+  children,
 }) => (
   <div className="mb-3 glass-card rounded-lg overflow-hidden shadow-lg">
     <button
@@ -77,42 +103,44 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         )}
       </div>
     </button>
-    
-    <div className={`transition-all duration-300 ease-in-out ${
-      isExpanded 
-        ? 'max-h-[1000px] opacity-100' 
-        : 'max-h-0 opacity-0'
-    } overflow-hidden`}>
-      <div className="p-4 pt-2 glass-panel-dark">
-        {children}
-      </div>
+
+    <div
+      className={`transition-all duration-300 ease-in-out ${
+        isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+      } overflow-hidden`}
+    >
+      <div className="p-4 pt-2 glass-panel-dark">{children}</div>
     </div>
   </div>
 );
 
-const InputGroup: React.FC<{ label: string; children: React.ReactNode; centered?: boolean }> = ({ 
-  label, 
-  children,
-  centered = false 
-}) => (
+const InputGroup: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  centered?: boolean;
+}> = ({ label, children, centered = false }) => (
   <div className="mb-4">
-    <label className={`block text-sm font-medium text-gray-300 mb-2 ${centered ? 'text-center' : ''}`}>
+    <label
+      className={`block text-sm font-medium text-gray-300 mb-2 ${
+        centered ? "text-center" : ""
+      }`}
+    >
       {label}
     </label>
     {children}
   </div>
 );
 
-const NumberInput: React.FC<{ 
-  value: number; 
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; 
+const NumberInput: React.FC<{
+  value: number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   unit: string;
   placeholder?: string;
 }> = ({ value, onChange, unit, placeholder }) => (
   <div className="flex items-center">
     <input
       type="number"
-      value={value || ''}
+      value={value || ""}
       onChange={onChange}
       placeholder={placeholder}
       className="w-full glass-input text-white focus:glass-status-success transition-all duration-300 rounded-md py-2 px-3"
@@ -130,8 +158,15 @@ const PressButton: React.FC<{
   className?: string;
   disabled?: boolean;
   title?: string;
-  variant?: 'default' | 'primary' | 'success' | 'warning';
-}> = ({ onClick, children, className = '', disabled = false, title, variant = 'default' }) => {
+  variant?: "default" | "primary" | "success" | "warning";
+}> = ({
+  onClick,
+  children,
+  className = "",
+  disabled = false,
+  title,
+  variant = "default",
+}) => {
   const [isPressed, setIsPressed] = useState(false);
 
   const handleMouseDown = () => setIsPressed(true);
@@ -140,14 +175,14 @@ const PressButton: React.FC<{
 
   const getVariantClasses = () => {
     switch (variant) {
-      case 'primary':
-        return 'glass-button border-blue-400/50 hover:glass-status-success';
-      case 'success':
-        return 'glass-status-success hover:border-green-300';
-      case 'warning':
-        return 'glass-status-warning hover:border-yellow-300';
+      case "primary":
+        return "glass-button border-blue-400/50 hover:glass-status-success";
+      case "success":
+        return "glass-status-success hover:border-green-300";
+      case "warning":
+        return "glass-status-warning hover:border-yellow-300";
       default:
-        return 'glass-button hover:bg-white/10';
+        return "glass-button hover:bg-white/10";
     }
   };
 
@@ -160,11 +195,9 @@ const PressButton: React.FC<{
       disabled={disabled}
       title={title}
       className={`transition-all duration-300 transform ${
-        isPressed && !disabled
-          ? 'scale-95 brightness-125' 
-          : 'hover:scale-105'
+        isPressed && !disabled ? "scale-95 brightness-125" : "hover:scale-105"
       } ${getVariantClasses()} ${
-        disabled ? 'opacity-50 cursor-not-allowed' : ''
+        disabled ? "opacity-50 cursor-not-allowed" : ""
       } ${className}`}
     >
       {children}
@@ -172,6 +205,7 @@ const PressButton: React.FC<{
   );
 };
 
+// Main ControlPanel Component
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   isCameraActive,
   setIsCameraActive,
@@ -200,6 +234,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   // State for raw input and formatted output
   const [rawInput, setRawInput] = useState('');
   const [formattedOutput, setFormattedOutput] = useState('');
+
+  // Collapsible panel state - Step 1 starts expanded
+  const [expandedPanels, setExpandedPanels] = useState<Record<number, boolean>>({
+    1: true, // Book Dimensions starts expanded
+    2: false,
+    3: false,
+    4: false, // Combined Page & Mark Navigation
+    5: false, // PDF Import
+    6: false  // Manual Marking Instructions
+  });
 
   // Function to clean and format book folding input
   const cleanBookFoldingInput = useCallback((raw: string): string => {
@@ -247,7 +291,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         .replace(/,\s*,/g, ",")         // Remove double commas
         .replace(/,\s+/g, ", ")         // Normalize comma spacing
         .replace(/\s*,/g, ",")          // Remove space before comma
-        .replace(/,/g, ", ")             // Add space after comma
+        .replace(/,/g, ", ")            // Add space after comma
         .replace(/,\s*$/, "")           // Remove trailing comma
         .trim();
       
@@ -276,15 +320,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       setFormattedOutput('');
     }
   }, [formattedOutput, handleInstructionsTextChange]);
-
-  // Collapsible panel state - Step 1 starts expanded
-  const [expandedPanels, setExpandedPanels] = useState<Record<number, boolean>>({
-    1: true, // Book Dimensions starts expanded
-    2: false,
-    3: false,
-    4: false, // Combined Page & Mark Navigation
-    5: false  // Marking Instructions
-  });
 
   const togglePanel = (stepNumber: number) => {
     setExpandedPanels(prev => ({
@@ -335,7 +370,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     2: calibrationData.pixelsPerCm !== null,
     3: true, // Voice control is always "ready"
     4: pageData.parsedInstructions.some(p => p !== '') && currentMarksCm.length > 0,
-    5: pageData.parsedInstructions.filter(p => p).length > 0
+    5: true, // PDF import is always available
+    6: pageData.parsedInstructions.filter(p => p).length > 0
   };
 
   return (
@@ -678,14 +714,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           />
         </CollapsibleSection>
 
-        {/* Enhanced Marking Instructions */}
+        {/* Enhanced Manual Marking Instructions */}
         <CollapsibleSection
           stepNumber={6}
           title="Manual Marking Instructions"
           instruction="Define which pages have fold marks and specify measurements for enhanced AR visualization."
-          isExpanded={expandedPanels[5]}
-          onToggle={() => togglePanel(5)}
-          isComplete={stepCompletion[5]}
+          isExpanded={expandedPanels[6]}
+          onToggle={() => togglePanel(6)}
+          isComplete={stepCompletion[6]}
         >
           <div className="space-y-4">
             {/* Enhanced Raw Input Area */}

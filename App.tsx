@@ -1,12 +1,8 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { ControlPanel } from "./components/ControlPanel";
 import { CameraView } from "./components/CameraView";
-import TrialBanner from "./components/TrialBanner";
-import FeatureGuard from "./components/FeatureGuard";
-import { useSubscription } from "./hooks/useSubscription";
 import type { PageData, CalibrationData, Transform, MarkNavigation } from "./types";
 
-// Import the glassmorphism styles
 const parseInstructions = (text: string): string[] => {
   const lines = text.split("\n");
   const instructionsMap = new Map<number, string>();
@@ -64,21 +60,11 @@ const parseInstructions = (text: string): string[] => {
   return newInstructionsArray;
 };
 
-const AppContent: React.FC = () => {
+const App: React.FC = () => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>(
     "✨ Enter book dimensions and start camera for enhanced AR experience"
   );
-
-  // Subscription hook
-  const { subscription } = useSubscription();
-
-  // Trial expiration check
-  const trialExpired = useMemo(() => {
-    if (subscription?.status === "active") return false;
-    if (subscription?.status === "trialing") return false;
-    return true;
-  }, [subscription]);
 
   const initialInstructionsText = `PAGE        Measurements in CM
 # Example pattern below - try PDF import for easier setup!
@@ -138,7 +124,7 @@ const AppContent: React.FC = () => {
     setMarkNavigation({ showAllMarks: true, currentMarkIndex: 0 });
   }, []);
 
-  const currentMarksCm = useMemo((): number[] => {
+  const currentMarksCm = useCallback((): number[] => {
     if (pageData.currentPage >= pageData.parsedInstructions.length) return [];
     const instructionString = pageData.parsedInstructions[pageData.currentPage];
     if (!instructionString) return [];
@@ -146,7 +132,7 @@ const AppContent: React.FC = () => {
       .split(",")
       .map((s) => parseFloat(s.trim()))
       .filter((n) => !isNaN(n));
-  }, [pageData.parsedInstructions, pageData.currentPage]);
+  }, [pageData.parsedInstructions, pageData.currentPage])();
 
   // Reset current mark index when page changes or when marks change
   useEffect(() => {
@@ -250,48 +236,40 @@ const AppContent: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100 md:h-screen md:flex md:flex-row">
-      {/* Trial Banner */}
-      {subscription?.status === "trialing" && subscription?.trialEnds && (
-        <TrialBanner trialEnds={subscription.trialEnds} />
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100">
+      {/* Desktop Layout: Side-by-Side */}
+      <div className="hidden md:flex md:h-screen">
+        {/* Control Panel - Fixed width, scrollable */}
+        <div className="w-96 flex-shrink-0">
+          <ControlPanel
+            isCameraActive={isCameraActive}
+            setIsCameraActive={setIsCameraActive}
+            pageData={pageData}
+            setPageData={setPageData}
+            calibrationData={calibrationData}
+            setCalibrationData={setCalibrationData}
+            handleInstructionsTextChange={handleInstructionsTextChange}
+            statusMessage={statusMessage}
+            setStatusMessage={setStatusMessage}
+            transform={transform}
+            setTransform={setTransform}
+            markNavigation={markNavigation}
+            currentMarksCm={currentMarksCm}
+            handleMarkNavigation={handleMarkNavigation}
+            handleNextPage={handleNextPage}
+            handlePrevPage={handlePrevPage}
+            onCalibrate={handleCalibrate}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+            gridType={gridType}
+            setGridType={setGridType}
+            gridOpacity={gridOpacity}
+            setGridOpacity={setGridOpacity}
+          />
+        </div>
 
-      {/* Control Panel */}
-      <ControlPanel
-        isCameraActive={isCameraActive}
-        setIsCameraActive={setIsCameraActive}
-        pageData={pageData}
-        setPageData={setPageData}
-        calibrationData={calibrationData}
-        setCalibrationData={setCalibrationData}
-        handleInstructionsTextChange={handleInstructionsTextChange}
-        statusMessage={statusMessage}
-        setStatusMessage={setStatusMessage}
-        transform={transform}
-        setTransform={setTransform}
-        markNavigation={markNavigation}
-        currentMarksCm={currentMarksCm}
-        handleMarkNavigation={handleMarkNavigation}
-        handleNextPage={handleNextPage}
-        handlePrevPage={handlePrevPage}
-        onCalibrate={handleCalibrate}
-        showGrid={showGrid}
-        setShowGrid={setShowGrid}
-        gridType={gridType}
-        setGridType={setGridType}
-        gridOpacity={gridOpacity}
-        setGridOpacity={setGridOpacity}
-      />
-
-      {/* Camera View */}
-      <main
-        className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container p-4 md:h-screen md:overflow-hidden"
-        style={{
-          minHeight: "100vh",
-          paddingBottom: "6rem",
-        }}
-      >
-        <div className="w-full h-full flex items-center justify-center">
+        {/* Camera View - Takes remaining space, centered content */}
+        <div className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative">
           <CameraView
             isCameraActive={isCameraActive}
             calibrationData={calibrationData}
@@ -312,17 +290,69 @@ const AppContent: React.FC = () => {
             triggerParticles={triggerParticles}
           />
         </div>
-      </main>
-    </div>
-  );
-};
+      </div>
 
-// Wrap entire app in FeatureGuard
-const App: React.FC = () => {
-  return (
-    <FeatureGuard requirePro>
-      <AppContent />
-    </FeatureGuard>
+      {/* Mobile Layout: Stacked */}
+      <div className="md:hidden">
+        {/* Control Panel */}
+        <ControlPanel
+          isCameraActive={isCameraActive}
+          setIsCameraActive={setIsCameraActive}
+          pageData={pageData}
+          setPageData={setPageData}
+          calibrationData={calibrationData}
+          setCalibrationData={setCalibrationData}
+          handleInstructionsTextChange={handleInstructionsTextChange}
+          statusMessage={statusMessage}
+          setStatusMessage={setStatusMessage}
+          transform={transform}
+          setTransform={setTransform}
+          markNavigation={markNavigation}
+          currentMarksCm={currentMarksCm}
+          handleMarkNavigation={handleMarkNavigation}
+          handleNextPage={handleNextPage}
+          handlePrevPage={handlePrevPage}
+          onCalibrate={handleCalibrate}
+          showGrid={showGrid}
+          setShowGrid={setShowGrid}
+          gridType={gridType}
+          setGridType={setGridType}
+          gridOpacity={gridOpacity}
+          setGridOpacity={setGridOpacity}
+        />
+
+        {/* Camera View */}
+        <main
+          className="bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container p-4"
+          style={{
+            minHeight: "100vh",
+            paddingBottom: "6rem",
+          }}
+        >
+          <div className="w-full h-full flex items-center justify-center">
+            <CameraView
+              isCameraActive={isCameraActive}
+              calibrationData={calibrationData}
+              setCalibrationData={setCalibrationData}
+              pageData={pageData}
+              marksCm={currentMarksCm}
+              markNavigation={markNavigation}
+              transform={transform}
+              setTransform={setTransform}
+              setStatusMessage={setStatusMessage}
+              onCalibrate={handleCalibrate}
+              onMarkNavigation={handleMarkNavigation}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              showGrid={showGrid}
+              gridType={gridType}
+              gridOpacity={gridOpacity}
+              triggerParticles={triggerParticles}
+            />
+          </div>
+        </main>
+      </div>
+    </div>
   );
 };
 

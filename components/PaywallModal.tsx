@@ -1,145 +1,101 @@
 // components/PaywallModal.tsx
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface PaywallModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  feature: string;
+  onSubscribe: () => void;
 }
 
-export default function PaywallModal({ isOpen, onClose, feature }: PaywallModalProps) {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+export const PaywallModal: React.FC<PaywallModalProps> = ({ onSubscribe }) => {
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
+  const [loading, setLoading] = useState(false);
 
-  if (!isOpen) return null;
-
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const plans = {
+    monthly: { price: '$5.99', period: 'per month', savings: '' },
+    yearly: { price: '$19.99', period: 'per year', savings: 'Save 17%' },
+    lifetime: { price: '$59.99', period: 'one-time', savings: 'Best Value' }
   };
 
-  const handleStartTrial = async () => {
-    setError('');
+  const handleSubscribe = async () => {
+    setLoading(true);
     
-    // Validate email
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
-    setIsLoading(true);
-
     try {
-      const res = await fetch('/api/start-trial', {
+      const response = await fetch('/api/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ plan: selectedPlan }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to start trial');
+      if (response.ok) {
+        // Store subscription info
+        const expiryDate = selectedPlan === 'lifetime' 
+          ? Date.now() + (50 * 365 * 24 * 60 * 60 * 1000) // 50 years
+          : selectedPlan === 'yearly'
+          ? Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
+          : Date.now() + (30 * 24 * 60 * 60 * 1000); // 1 month
+
+        localStorage.setItem('bookfoldar_subscription', JSON.stringify({
+          plan: selectedPlan,
+          status: 'active',
+          startDate: Date.now(),
+          expiryDate
+        }));
+        
+        onSubscribe();
       }
-
-      const data = await res.json();
-      console.log('Trial started:', data);
-      
-      // Close modal and reload to refresh subscription state
-      onClose();
-      window.location.reload();
-      
-    } catch (error: any) {
-      console.error('Trial start error:', error);
-      setError(error.message || 'Failed to start trial. Please try again.');
+    } catch (error) {
+      console.error('Subscription error:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
-
-  const handleUpgrade = () => {
-    // Redirect to pricing page or open subscription flow
-    window.location.href = '/pricing';
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Unlock {feature}
-          </h2>
-          
-          <p className="text-gray-600 mb-6">
-            This feature requires a subscription. Start your free 7-day trial to continue!
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="glass-card p-8 rounded-xl max-w-2xl w-full text-white">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-4">🚀 Continue Your BookfoldAR Journey</h2>
+          <p className="text-gray-300">
+            Your 7-day trial has ended. Choose a plan to keep using all the amazing AR features!
           </p>
+        </div>
 
-          {/* Email Input */}
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 text-left">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={isLoading}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleStartTrial();
-                }
-              }}
-            />
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          {Object.entries(plans).map(([key, plan]) => (
+            <div
+              key={key}
+              onClick={() => setSelectedPlan(key as any)}
+              className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
+                selectedPlan === key
+                  ? 'border-blue-500 bg-blue-500/20'
+                  : 'border-gray-600 hover:border-gray-400'
+              }`}
+            >
+              <h3 className="text-xl font-bold mb-2 capitalize">{key}</h3>
+              <div className="text-2xl font-bold text-blue-400">{plan.price}</div>
+              <div className="text-gray-400 text-sm">{plan.period}</div>
+              {plan.savings && (
+                <div className="mt-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">
+                  {plan.savings}
+                </div>
+              )}
             </div>
-          )}
+          ))}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleStartTrial}
-              disabled={isLoading || !email.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-md transition-colors"
-            >
-              {isLoading ? 'Starting Trial...' : 'Start Free Trial'}
-            </button>
-            
-            <button
-              onClick={handleUpgrade}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition-colors"
-            >
-              View Pricing Plans
-            </button>
-            
-            <button
-              onClick={onClose}
-              className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {/* Trust Indicators */}
-          <div className="mt-4 text-xs text-gray-500">
-            <p>✓ No credit card required</p>
-            <p>✓ Cancel anytime during trial</p>
-            <p>✓ Full access to all features</p>
+        <div className="text-center">
+          <button
+            onClick={handleSubscribe}
+            disabled={loading}
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+          >
+            {loading ? 'Processing...' : `Subscribe ${plans[selectedPlan].price}`}
+          </button>
+          
+          <div className="mt-4 text-sm text-gray-400">
+            ✅ Full AR system access • ✅ All features unlocked • ✅ Lifetime updates
           </div>
         </div>
       </div>
     </div>
   );
-}
+};

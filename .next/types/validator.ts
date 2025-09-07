@@ -22,19 +22,6 @@ type PagesPageConfig = {
   }
 }
 
-type ApiRouteConfig = {
-  default: (req: any, res: any) => Promise<Response | void> | Response | void
-  config?: {
-    api?: {
-      bodyParser?: boolean | { sizeLimit?: string }
-      responseLimit?: string | number | boolean
-      externalResolver?: boolean
-    }
-    runtime?: 'edge' | 'experimental-edge' | 'nodejs' | string // necessary unless config is exported as const
-    maxDuration?: number
-  }
-}
-
 
 
 
@@ -46,46 +33,18 @@ type ApiRouteConfig = {
   handler satisfies PagesPageConfig
 }
 
+// Validate ../pages/app.tsx
+{
+  const handler = {} as typeof import("../pages/app.js")
+  handler satisfies PagesPageConfig
+}
+
 // Validate ../pages/index.tsx
 {
   const handler = {} as typeof import("../pages/index.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../pages/api/auth/register.ts
-{
-  const handler = {} as typeof import("../pages/api/auth/register.js")
-  handler satisfies ApiRouteConfig
-}
 
-// Validate ../pages/api/create-checkout.ts
-{
-  const handler = {} as typeof import("../pages/api/create-checkout.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/start-trial.ts
-{
-  const handler = {} as typeof import("../pages/api/start-trial.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/subscription/manage.ts
-{
-  const handler = {} as typeof import("../pages/api/subscription/manage.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/subscription/status.ts
-{
-  const handler = {} as typeof import("../pages/api/subscription/status.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/webhooks/stripe.ts
-{
-  const handler = {} as typeof import("../pages/api/webhooks/stripe.js")
-  handler satisfies ApiRouteConfig
-}
 
 
