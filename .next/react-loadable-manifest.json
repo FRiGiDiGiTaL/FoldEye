@@ -16,5 +16,11 @@
     "files": [
       "static/chunks/_pages-dir-browser_node_modules_next_dist_pages__error_js.js"
     ]
+  },
+  "pages\\app.tsx -> ../App": {
+    "id": "pages\\app.tsx -> ../App",
+    "files": [
+      "static/chunks/_pages-dir-browser_App_tsx.js"
+    ]
   }
 }
