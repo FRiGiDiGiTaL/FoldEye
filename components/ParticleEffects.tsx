@@ -26,7 +26,7 @@ export const ParticleEffects: React.FC<ParticleEffectsProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
 
   // Create particles at alignment point
   const createAlignmentParticles = (x: number, y: number) => {
