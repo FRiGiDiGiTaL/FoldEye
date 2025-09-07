@@ -1,28 +1,30 @@
 // pages/app.tsx
-import React, { useEffect, useState } from 'react';
-import { TrialGuard } from '../components/TrialGuard';
-import { PWAInstaller } from '../components/PWAInstaller';
-import App from '../src/app';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import App from "../App"; // ✅ use your root App.tsx
 
-export default function BookfoldARApp() {
-  const [isClient, setIsClient] = useState(false);
+export default function AppPage() {
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    const trial = localStorage.getItem("bookfoldar_trial");
 
-  if (!isClient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading BookfoldAR...</div>
-      </div>
-    );
+    if (trial) {
+      const { expiryDate } = JSON.parse(trial);
+      if (Date.now() < expiryDate) {
+        setAuthorized(true); // ✅ still in trial
+        return;
+      }
+    }
+
+    // ❌ No valid trial → back to landing
+    router.replace("/");
+  }, [router]);
+
+  if (!authorized) {
+    return <p className="text-center text-white mt-20">Checking trial status...</p>;
   }
 
-  return (
-    <TrialGuard>
-      <PWAInstaller />
-      <App />
-    </TrialGuard>
-  );
+  return <App />;
 }

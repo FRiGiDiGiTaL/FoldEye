@@ -22,6 +22,19 @@ type PagesPageConfig = {
   }
 }
 
+type ApiRouteConfig = {
+  default: (req: any, res: any) => Promise<Response | void> | Response | void
+  config?: {
+    api?: {
+      bodyParser?: boolean | { sizeLimit?: string }
+      responseLimit?: string | number | boolean
+      externalResolver?: boolean
+    }
+    runtime?: 'edge' | 'experimental-edge' | 'nodejs' | string // necessary unless config is exported as const
+    maxDuration?: number
+  }
+}
+
 
 
 
@@ -45,6 +58,16 @@ type PagesPageConfig = {
   handler satisfies PagesPageConfig
 }
 
+// Validate ../pages/paywall.tsx
+{
+  const handler = {} as typeof import("../pages/paywall.js")
+  handler satisfies PagesPageConfig
+}
 
+// Validate ../pages/api/subscribe.ts
+{
+  const handler = {} as typeof import("../pages/api/subscribe.js")
+  handler satisfies ApiRouteConfig
+}
 
 

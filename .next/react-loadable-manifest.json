@@ -1,4 +1,10 @@
 {
+  "components\\ControlPanel.tsx -> ./VoiceControl": {
+    "id": "components\\ControlPanel.tsx -> ./VoiceControl",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_VoiceControl_tsx.js"
+    ]
+  },
   "node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
     "id": "node_modules\\next\\dist\\client\\index.js -> ../pages/_app",
     "files": [
