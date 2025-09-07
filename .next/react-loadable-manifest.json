@@ -1,4 +1,16 @@
 {
+  "App.tsx -> ./components/CameraView": {
+    "id": "App.tsx -> ./components/CameraView",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_CameraView_tsx.js"
+    ]
+  },
+  "App.tsx -> ./components/ControlPanel": {
+    "id": "App.tsx -> ./components/ControlPanel",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_ControlPanel_tsx.js"
+    ]
+  },
   "components\\ControlPanel.tsx -> ./VoiceControl": {
     "id": "components\\ControlPanel.tsx -> ./VoiceControl",
     "files": [

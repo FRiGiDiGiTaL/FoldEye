@@ -1,12 +1,175 @@
-// pages/index.tsx
-import React from "react";
+// pages/index.tsx - Enhanced Original Landing Page
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { TrialSignup } from "../components/TrialSignup";
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [userStatus, setUserStatus] = useState<'loading' | 'new' | 'trial' | 'subscribed' | 'expired'>('loading');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    const checkUserStatus = () => {
+      try {
+        // Check subscription first
+        const subscription = localStorage.getItem("bookfoldar_subscription");
+        if (subscription) {
+          const subData = JSON.parse(subscription);
+          if (subData.active || 
+              (subData.status === 'active' && subData.expiryDate > Date.now()) ||
+              subData.plan) {
+            setUserStatus('subscribed');
+            return;
+          }
+        }
+
+        // Check trial
+        const trial = localStorage.getItem("bookfoldar_trial");
+        if (trial) {
+          const trialData = JSON.parse(trial);
+          if (trialData.expiryDate && Date.now() < trialData.expiryDate) {
+            setUserStatus('trial');
+            return;
+          } else {
+            setUserStatus('expired');
+            return;
+          }
+        }
+
+        // New user
+        setUserStatus('new');
+      } catch (error) {
+        console.error('Error checking user status:', error);
+        setUserStatus('new');
+      }
+    };
+
+    checkUserStatus();
+  }, [isClient]);
+
+  const handleAccessApp = () => {
+    router.push('/app');
+  };
+
+  const getRemainingTrialDays = () => {
+    try {
+      const trial = localStorage.getItem("bookfoldar_trial");
+      if (trial) {
+        const trialData = JSON.parse(trial);
+        const remaining = Math.ceil((trialData.expiryDate - Date.now()) / (1000 * 60 * 60 * 24));
+        return Math.max(0, remaining);
+      }
+    } catch (error) {
+      console.error('Error calculating trial days:', error);
+    }
+    return 0;
+  };
+
+  const renderTrialSignupSection = () => {
+    if (!isClient || userStatus === 'loading') {
+      return (
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-white/20 mb-8">
+          <div className="animate-pulse flex flex-col items-center">
+            <div className="h-8 bg-gray-300/20 rounded w-3/4 mb-4"></div>
+            <div className="h-12 bg-gray-300/20 rounded w-full mb-4"></div>
+            <div className="h-4 bg-gray-300/20 rounded w-1/2"></div>
+          </div>
+        </div>
+      );
+    }
+
+    switch (userStatus) {
+      case 'subscribed':
+        return (
+          <div className="bg-green-500/20 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-green-400/30 mb-8">
+            <h3 className="text-2xl font-semibold mb-4 text-green-300">🎉 Welcome Back, Subscriber!</h3>
+            <p className="text-sm text-gray-200 mb-6">
+              You have full access to all BookfoldAR features. Continue your precision folding journey.
+            </p>
+            <button
+              onClick={handleAccessApp}
+              className="w-full bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center justify-center"
+            >
+              <span className="mr-2">🚀</span>
+              Launch BookfoldAR
+            </button>
+            <div className="mt-4 text-xs text-gray-300 text-center">
+              Full access • All features unlocked • AR precision folding
+            </div>
+          </div>
+        );
+
+      case 'trial':
+        const remainingDays = getRemainingTrialDays();
+        return (
+          <div className="bg-blue-500/20 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-blue-400/30 mb-8">
+            <h3 className="text-2xl font-semibold mb-4 text-blue-300">✨ Welcome Back!</h3>
+            <p className="text-sm text-gray-200 mb-2">
+              Your free trial is active with <span className="font-bold text-blue-300">{remainingDays} days remaining</span>.
+            </p>
+            <p className="text-sm text-gray-200 mb-6">
+              Continue exploring all BookfoldAR features.
+            </p>
+            <button
+              onClick={handleAccessApp}
+              className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center justify-center mb-3"
+            >
+              <span className="mr-2">📱</span>
+              Continue to BookfoldAR
+            </button>
+            <Link 
+              href="/paywall" 
+              className="block w-full text-center bg-green-600/20 hover:bg-green-600/30 px-4 py-2 rounded text-green-300 text-sm transition-colors"
+            >
+              Upgrade to Premium
+            </Link>
+          </div>
+        );
+
+      case 'expired':
+        return (
+          <div className="bg-yellow-500/20 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-yellow-400/30 mb-8">
+            <h3 className="text-2xl font-semibold mb-4 text-yellow-300">⏰ Trial Expired</h3>
+            <p className="text-sm text-gray-200 mb-6">
+              Your 7-day free trial has ended. Subscribe to continue using all BookfoldAR features.
+            </p>
+            <Link 
+              href="/paywall"
+              className="block w-full text-center bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors mb-3"
+            >
+              <span className="mr-2">💎</span>
+              View Subscription Plans
+            </Link>
+            <div className="mt-4 text-xs text-gray-300 text-center">
+              Choose from Monthly • Yearly • Lifetime plans
+            </div>
+          </div>
+        );
+
+      default: // 'new' user
+        return (
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-white/20 mb-8">
+            <h3 className="text-2xl font-semibold mb-4">🚀 Start Your 7-Day Free Trial</h3>
+            <p className="text-sm text-gray-200 mb-6">
+              Full access to all AR features. No premium tiers - get the complete BookfoldAR experience.
+            </p>
+            <TrialSignup />
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="bg-gray-900 text-white">
-      {/* Hero Section with Trial Signup */}
+      {/* Hero Section with Enhanced Trial Signup */}
       <section className="text-center py-20 bg-gradient-to-r from-blue-600 to-purple-700 px-4">
         <h1 className="text-5xl font-bold mb-4">📚 BookfoldAR</h1>
         <p className="text-lg max-w-2xl mx-auto text-gray-100 mb-8">
@@ -14,14 +177,8 @@ export default function LandingPage() {
           Transform complex patterns into an intuitive, step-by-step AR experience.
         </p>
         
-        {/* Enhanced Trial Signup Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-white/20 mb-8">
-          <h3 className="text-2xl font-semibold mb-4">🚀 Start Your 7-Day Free Trial</h3>
-          <p className="text-sm text-gray-200 mb-6">
-            Full access to all AR features. No premium tiers - get the complete BookfoldAR experience.
-          </p>
-          <TrialSignup />
-        </div>
+        {/* Enhanced Dynamic Trial Signup Card */}
+        {renderTrialSignupSection()}
 
         {/* Quick benefits preview */}
         <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
@@ -41,6 +198,13 @@ export default function LandingPage() {
             <p className="text-sm text-gray-200">Import pattern files automatically</p>
           </div>
         </div>
+
+        {/* Quick access note for returning users */}
+        {isClient && userStatus !== 'new' && (
+          <div className="mt-8 text-sm text-gray-300">
+            💡 <strong>Tip:</strong> You can also bookmark <code className="bg-black/20 px-2 py-1 rounded">yoursite.com/app</code> for direct access
+          </div>
+        )}
       </section>
 
       {/* Control Panel Overview */}
@@ -197,43 +361,102 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section className="text-center py-20 bg-gradient-to-r from-purple-700 to-blue-600">
-        <h2 className="text-4xl font-bold mb-6">Ready to Transform Your Book Folding?</h2>
-        <p className="max-w-3xl mx-auto text-xl text-gray-100 mb-8 leading-relaxed">
-          Join crafters worldwide using BookfoldAR for precision folding. 
-          Get complete access to all features during your 7-day trial - no restrictions, 
-          no premium tiers, just the full BookfoldAR experience.
-        </p>
-        
-        {/* Bottom Trial Signup */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-white/20 mb-8">
-          <h3 className="text-2xl font-semibold mb-4">Start Your Free Trial Now</h3>
-          <p className="text-sm text-gray-200 mb-6">
-            Enter your email below to begin your 7-day free trial
+      {/* Final CTA Section - Show appropriate content based on user status */}
+      {isClient && (userStatus === 'new' || userStatus === 'loading') && (
+        <section className="text-center py-20 bg-gradient-to-r from-purple-700 to-blue-600">
+          <h2 className="text-4xl font-bold mb-6">Ready to Transform Your Book Folding?</h2>
+          <p className="max-w-3xl mx-auto text-xl text-gray-100 mb-8 leading-relaxed">
+            Join crafters worldwide using BookfoldAR for precision folding. 
+            Get complete access to all features during your 7-day trial - no restrictions, 
+            no premium tiers, just the full BookfoldAR experience.
           </p>
-          <TrialSignup />
-        </div>
-        
-        <div className="grid md:grid-cols-4 gap-6 max-w-4xl mx-auto text-sm text-gray-300">
-          <div className="flex items-center justify-center">
-            <span className="text-green-400 mr-2">✅</span>
-            Complete AR system access
+          
+          {/* Bottom Trial Signup */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-white/20 mb-8">
+            <h3 className="text-2xl font-semibold mb-4">Start Your Free Trial Now</h3>
+            <p className="text-sm text-gray-200 mb-6">
+              Enter your email below to begin your 7-day free trial
+            </p>
+            <TrialSignup />
           </div>
-          <div className="flex items-center justify-center">
-            <span className="text-green-400 mr-2">✅</span>
-            All control panel features
+          
+          <div className="grid md:grid-cols-4 gap-6 max-w-4xl mx-auto text-sm text-gray-300">
+            <div className="flex items-center justify-center">
+              <span className="text-green-400 mr-2">✅</span>
+              Complete AR system access
+            </div>
+            <div className="flex items-center justify-center">
+              <span className="text-green-400 mr-2">✅</span>
+              All control panel features
+            </div>
+            <div className="flex items-center justify-center">
+              <span className="text-green-400 mr-2">✅</span>
+              Voice control & PDF import
+            </div>
+            <div className="flex items-center justify-center">
+              <span className="text-green-400 mr-2">✅</span>
+              No feature restrictions
+            </div>
           </div>
-          <div className="flex items-center justify-center">
-            <span className="text-green-400 mr-2">✅</span>
-            Voice control & PDF import
+        </section>
+      )}
+
+      {/* Alternative CTA for existing users */}
+      {isClient && (userStatus === 'trial' || userStatus === 'subscribed' || userStatus === 'expired') && (
+        <section className="text-center py-20 bg-gradient-to-r from-purple-700 to-blue-600">
+          <h2 className="text-4xl font-bold mb-6">
+            {userStatus === 'subscribed' ? 'Continue Your BookfoldAR Journey' : 
+             userStatus === 'trial' ? 'Make the Most of Your Trial' : 
+             'Your BookfoldAR Experience Awaits'}
+          </h2>
+          <p className="max-w-3xl mx-auto text-xl text-gray-100 mb-8 leading-relaxed">
+            {userStatus === 'subscribed' ? 'You have full access to all BookfoldAR features. Create amazing book art with precision AR guidance.' :
+             userStatus === 'trial' ? `You have ${getRemainingTrialDays()} days left to explore all features. Upgrade anytime to continue your journey.` :
+             'Your trial has ended, but your book folding journey can continue. Choose a plan to unlock all features.'}
+          </p>
+          
+          <div className="flex justify-center space-x-4 max-w-lg mx-auto">
+            {userStatus === 'subscribed' && (
+              <button
+                onClick={handleAccessApp}
+                className="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-semibold text-white transition-colors flex items-center"
+              >
+                <span className="mr-2">🚀</span>
+                Launch BookfoldAR
+              </button>
+            )}
+            
+            {userStatus === 'trial' && (
+              <>
+                <button
+                  onClick={handleAccessApp}
+                  className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center"
+                >
+                  <span className="mr-2">📱</span>
+                  Continue Trial
+                </button>
+                <Link
+                  href="/paywall"
+                  className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center"
+                >
+                  <span className="mr-2">⭐</span>
+                  Upgrade Now
+                </Link>
+              </>
+            )}
+            
+            {userStatus === 'expired' && (
+              <Link
+                href="/paywall"
+                className="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-semibold text-white transition-colors flex items-center"
+              >
+                <span className="mr-2">💎</span>
+                View Plans
+              </Link>
+            )}
           </div>
-          <div className="flex items-center justify-center">
-            <span className="text-green-400 mr-2">✅</span>
-            No feature restrictions
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-800 py-8 px-4 text-center text-gray-400">

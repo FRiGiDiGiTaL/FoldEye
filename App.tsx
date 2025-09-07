@@ -1,7 +1,35 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { ControlPanel } from "./components/ControlPanel";
-import { CameraView } from "./components/CameraView";
+import dynamic from "next/dynamic";
 import type { PageData, CalibrationData, Transform, MarkNavigation } from "./types";
+
+// Dynamically import client-only components to prevent SSR issues
+const ControlPanel = dynamic(() => import("./components/ControlPanel").then(mod => ({ default: mod.ControlPanel })), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full md:w-96 glass-panel-dark p-4 flex-shrink-0 shadow-2xl">
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-700 rounded mb-4"></div>
+        <div className="space-y-3">
+          <div className="h-16 bg-gray-700 rounded"></div>
+          <div className="h-12 bg-gray-700 rounded"></div>
+          <div className="h-12 bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    </div>
+  )
+});
+
+const CameraView = dynamic(() => import("./components/CameraView").then(mod => ({ default: mod.CameraView })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center min-h-[400px]">
+      <div className="text-white text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-transparent mx-auto mb-4"></div>
+        <p className="text-xl">Loading AR Camera...</p>
+      </div>
+    </div>
+  )
+});
 
 const parseInstructions = (text: string): string[] => {
   const lines = text.split("\n");
@@ -61,6 +89,7 @@ const parseInstructions = (text: string): string[] => {
 };
 
 const App: React.FC = () => {
+  const [isClient, setIsClient] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>(
     "✨ Enter book dimensions and start camera for enhanced AR experience"
@@ -102,6 +131,11 @@ const App: React.FC = () => {
 
   // Particle effects state
   const [triggerParticles, setTriggerParticles] = useState<boolean>(false);
+
+  // Set client flag after mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleInstructionsTextChange = useCallback((text: string) => {
     const newParsedInstructions = parseInstructions(text);
@@ -235,12 +269,24 @@ const App: React.FC = () => {
     setTimeout(() => setTriggerParticles(false), 100);
   }, []);
 
+  // Don't render until client-side to prevent hydration mismatches
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-xl">Loading BookfoldAR...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-gray-100">
-      {/* Desktop Layout: Side-by-Side */}
-      <div className="hidden md:flex md:h-screen">
-        {/* Control Panel - Fixed width, scrollable */}
-        <div className="w-96 flex-shrink-0">
+      {/* Single responsive layout that works on all screen sizes */}
+      <div className="flex flex-col md:flex-row min-h-screen">
+        {/* Control Panel - Full width on mobile, fixed width on desktop */}
+        <div className="w-full md:w-96 md:flex-shrink-0">
           <ControlPanel
             isCameraActive={isCameraActive}
             setIsCameraActive={setIsCameraActive}
@@ -268,8 +314,8 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Camera View - Takes remaining space, centered content */}
-        <div className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative">
+        {/* Camera View - Takes remaining space */}
+        <div className="flex-1 bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative min-h-[400px] md:min-h-screen">
           <CameraView
             isCameraActive={isCameraActive}
             calibrationData={calibrationData}
@@ -292,65 +338,12 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Layout: Stacked */}
-      <div className="md:hidden">
-        {/* Control Panel */}
-        <ControlPanel
-          isCameraActive={isCameraActive}
-          setIsCameraActive={setIsCameraActive}
-          pageData={pageData}
-          setPageData={setPageData}
-          calibrationData={calibrationData}
-          setCalibrationData={setCalibrationData}
-          handleInstructionsTextChange={handleInstructionsTextChange}
-          statusMessage={statusMessage}
-          setStatusMessage={setStatusMessage}
-          transform={transform}
-          setTransform={setTransform}
-          markNavigation={markNavigation}
-          currentMarksCm={currentMarksCm}
-          handleMarkNavigation={handleMarkNavigation}
-          handleNextPage={handleNextPage}
-          handlePrevPage={handlePrevPage}
-          onCalibrate={handleCalibrate}
-          showGrid={showGrid}
-          setShowGrid={setShowGrid}
-          gridType={gridType}
-          setGridType={setGridType}
-          gridOpacity={gridOpacity}
-          setGridOpacity={setGridOpacity}
-        />
-
-        {/* Camera View */}
-        <main
-          className="bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center relative particle-container p-4"
-          style={{
-            minHeight: "100vh",
-            paddingBottom: "6rem",
-          }}
-        >
-          <div className="w-full h-full flex items-center justify-center">
-            <CameraView
-              isCameraActive={isCameraActive}
-              calibrationData={calibrationData}
-              setCalibrationData={setCalibrationData}
-              pageData={pageData}
-              marksCm={currentMarksCm}
-              markNavigation={markNavigation}
-              transform={transform}
-              setTransform={setTransform}
-              setStatusMessage={setStatusMessage}
-              onCalibrate={handleCalibrate}
-              onMarkNavigation={handleMarkNavigation}
-              onNextPage={handleNextPage}
-              onPrevPage={handlePrevPage}
-              showGrid={showGrid}
-              gridType={gridType}
-              gridOpacity={gridOpacity}
-              triggerParticles={triggerParticles}
-            />
-          </div>
-        </main>
+      {/* Debug info - remove this in production */}
+      <div className="fixed bottom-4 right-4 bg-black/50 text-white text-xs p-2 rounded opacity-50 pointer-events-none md:hidden">
+        Mobile Layout Active
+      </div>
+      <div className="fixed bottom-4 right-4 bg-black/50 text-white text-xs p-2 rounded opacity-50 pointer-events-none hidden md:block">
+        Desktop Layout Active
       </div>
     </div>
   );
