@@ -1,11 +1,7 @@
 {
   "/_app": "pages/_app.js",
-  "/api/subscribe": "pages/api/subscribe.js",
-  "/api/subscription": "pages/api/subscription.js",
-  "/app": "pages/app.html",
-  "/": "pages/index.html",
   "/_error": "pages/_error.js",
-  "/paywall": "pages/paywall.html",
   "/_document": "pages/_document.js",
-  "/404": "pages/404.html"
+  "/paywall": "pages/paywall.js",
+  "/": "pages/index.js"
 }

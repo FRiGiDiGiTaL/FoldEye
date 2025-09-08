@@ -40,33 +40,39 @@ type ApiRouteConfig = {
 
 
 
-// Validate ../../pages/app.tsx
+// Validate ../pages/_app.tsx
 {
-  const handler = {} as typeof import("../../pages/app.js")
+  const handler = {} as typeof import("../pages/_app.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../../pages/index.tsx
+// Validate ../pages/app.tsx
 {
-  const handler = {} as typeof import("../../pages/index.js")
+  const handler = {} as typeof import("../pages/app.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../../pages/paywall.tsx
+// Validate ../pages/index.tsx
 {
-  const handler = {} as typeof import("../../pages/paywall.js")
+  const handler = {} as typeof import("../pages/index.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../../pages/api/subscribe.ts
+// Validate ../pages/paywall.tsx
 {
-  const handler = {} as typeof import("../../pages/api/subscribe.js")
+  const handler = {} as typeof import("../pages/paywall.js")
+  handler satisfies PagesPageConfig
+}
+
+// Validate ../pages/api/subscribe.ts
+{
+  const handler = {} as typeof import("../pages/api/subscribe.js")
   handler satisfies ApiRouteConfig
 }
 
-// Validate ../../pages/api/subscription.ts
+// Validate ../pages/api/subscription.ts
 {
-  const handler = {} as typeof import("../../pages/api/subscription.js")
+  const handler = {} as typeof import("../pages/api/subscription.js")
   handler satisfies ApiRouteConfig
 }
 
