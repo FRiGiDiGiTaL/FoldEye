@@ -94,10 +94,4 @@ type ApiRouteConfig = {
   handler satisfies ApiRouteConfig
 }
 
-// Validate ../pages/api/verify-session.ts
-{
-  const handler = {} as typeof import("../pages/api/verify-session.js")
-  handler satisfies ApiRouteConfig
-}
-
 

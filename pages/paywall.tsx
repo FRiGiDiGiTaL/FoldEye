@@ -1,70 +1,83 @@
-// pages/paywall.tsx
+// pages/paywall.tsx - Updated for Payment Links
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 
-/**
- * Pricing page for BookfoldAR.
- * - Uses NEXT_PUBLIC_STRIPE_PRICE_MONTHLY / YEARLY / LIFETIME env vars as price IDs.
- * - Displays the exact prices you provided:
- *   Monthly: $5.99/mo
- *   Yearly:  $19.99/yr
- *   Lifetime: $59.99 one-time
- */
-
 export default function PaywallPage() {
   const router = useRouter();
-  const { success, canceled, session_id } = router.query;
+  const { success, canceled } = router.query;
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly');
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string>('');
 
-  const [loading, setLoading] = useState(false);
-  const [paid, setPaid] = useState(false);
+  const plans = {
+    monthly: { 
+      price: '$5.99', 
+      period: 'per month', 
+      savings: '',
+      description: 'Full access to all AR features',
+      paymentLink: 'https://buy.stripe.com/14A14mcn4bfLbRM7pqgbm00'
+    },
+    yearly: { 
+      price: '$19.99', 
+      period: 'per year', 
+      savings: 'Save 67%',
+      description: 'Best value - 2 months free',
+      paymentLink: 'https://buy.stripe.com/7sY00i2MuerX094h00gbm01'
+    },
+    lifetime: { 
+      price: '$59.99', 
+      period: 'one-time', 
+      savings: 'Best Deal',
+      description: 'Pay once, use forever',
+      paymentLink: 'https://buy.stripe.com/fZu9ASfzgabH2hc112gbm02'
+    }
+  };
 
-  // Stripe price IDs (must be set in .env.local as NEXT_PUBLIC_...)
-  const monthlyPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY || "";
-  const yearlyPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY || "";
-  const lifetimePriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_LIFETIME || "";
-
-  async function startCheckout(priceId: string) {
-    if (!priceId) {
-      alert("Price ID not configured. Check your .env.local.");
+  const handleSubscribe = () => {
+    console.log('NEW PAYMENT LINKS VERSION RUNNING!');
+    
+    // Basic email validation
+    if (!email.trim()) {
+      setError('Please enter your email address');
       return;
     }
 
-    setLoading(true);
-    try {
-      const resp = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
-      });
-      const data = await resp.json();
-      if (data?.url) {
-        // Redirect user to Stripe Checkout
-        window.location.href = data.url;
-      } else {
-        console.error("create-checkout-session response:", data);
-        alert("Failed to start checkout. See console for details.");
-      }
-    } catch (err) {
-      console.error("startCheckout error", err);
-      alert("Error starting checkout.");
-    } finally {
-      setLoading(false);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address');
+      return;
     }
-  }
 
-  // Verify session on redirect back from Stripe (quick client check)
+    // Get the payment link for selected plan
+    const selectedPaymentLink = plans[selectedPlan].paymentLink;
+
+    // Add email as URL parameter to pre-fill Stripe checkout
+    let paymentUrl = selectedPaymentLink;
+    if (email.trim()) {
+      const url = new URL(selectedPaymentLink);
+      url.searchParams.set('prefilled_email', email.trim());
+      paymentUrl = url.toString();
+    }
+
+    // Simply redirect to Stripe Payment Link
+    window.location.href = paymentUrl;
+  };
+
+  // Handle success return from Stripe
   useEffect(() => {
-    if (success && session_id) {
-      fetch(`/api/verify-session?session_id=${session_id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.paid) setPaid(true);
-        })
-        .catch((err) => console.error("verify-session error", err));
+    if (success) {
+      // Store simple subscription data
+      const subscriptionData = {
+        plan: router.query.plan || 'unknown',
+        status: 'active',
+        startDate: Date.now(),
+        source: 'payment_link'
+      };
+      localStorage.setItem('bookfoldar_subscription', JSON.stringify(subscriptionData));
     }
-  }, [success, session_id]);
+  }, [success, router.query.plan]);
 
-  if (paid) {
+  if (success) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-6">
         <div className="bg-green-700/10 border border-green-500/30 rounded-2xl p-8 max-w-md text-center">
@@ -93,82 +106,96 @@ export default function PaywallPage() {
         {canceled && <p className="text-red-400 mt-4">❌ Payment canceled</p>}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-        {/* Monthly */}
-        <div className="bg-white/6 backdrop-blur-lg border border-white/12 rounded-2xl p-8 flex flex-col justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">BookfoldAR Pro — Monthly</h2>
-            <p className="text-gray-300 mb-4">Pay month-to-month, cancel anytime.</p>
-            <p className="text-3xl font-bold mb-4">$5.99<span className="text-sm ml-1">/mo</span></p>
-
-            <ul className="text-sm text-gray-300 space-y-2 mb-6">
-              <li>• AR precision folding</li>
-              <li>• Voice control</li>
-              <li>• PDF import & control panel</li>
-            </ul>
-          </div>
-
-          <button
-            onClick={() => startCheckout(monthlyPriceId)}
-            disabled={loading || !monthlyPriceId}
-            className="bg-blue-600 disabled:opacity-50 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors"
-          >
-            {monthlyPriceId ? "Start Monthly — $5.99/mo" : "Monthly plan not configured"}
-          </button>
-        </div>
-
-        {/* Yearly */}
-        <div className="bg-white/6 backdrop-blur-lg border border-white/12 rounded-2xl p-8 flex flex-col justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">BookfoldAR Pro — Yearly</h2>
-            <p className="text-gray-300 mb-4">Best value — save vs monthly.</p>
-            <p className="text-3xl font-bold mb-4">$19.99<span className="text-sm ml-1">/yr</span></p>
-
-            <ul className="text-sm text-gray-300 space-y-2 mb-6">
-              <li>• Everything in Monthly</li>
-              <li>• One low yearly payment</li>
-              <li>• Priority updates</li>
-            </ul>
-          </div>
-
-          <button
-            onClick={() => startCheckout(yearlyPriceId)}
-            disabled={loading || !yearlyPriceId}
-            className="bg-yellow-500 disabled:opacity-50 hover:bg-yellow-600 px-6 py-3 rounded-lg font-semibold text-black transition-colors"
-          >
-            {yearlyPriceId ? "Start Yearly — $19.99/yr" : "Yearly plan not configured"}
-          </button>
-        </div>
-
-        {/* Lifetime */}
-        <div className="bg-white/6 backdrop-blur-lg border border-white/12 rounded-2xl p-8 flex flex-col justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">BookfoldAR Pro — Lifetime</h2>
-            <p className="text-gray-300 mb-4">One-time payment — access forever.</p>
-            <p className="text-3xl font-bold mb-4">$59.99<span className="text-sm ml-1"> one-time</span></p>
-
-            <ul className="text-sm text-gray-300 space-y-2 mb-6">
-              <li>• Lifetime access</li>
-              <li>• All future updates included</li>
-              <li>• Best for committed creators</li>
-            </ul>
-          </div>
-
-          <button
-            onClick={() => startCheckout(lifetimePriceId)}
-            disabled={loading || !lifetimePriceId}
-            className="bg-green-600 disabled:opacity-50 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors"
-          >
-            {lifetimePriceId ? "Buy Lifetime — $59.99" : "Lifetime plan not configured"}
-          </button>
-        </div>
+      {/* Email input */}
+      <div className="max-w-md mx-auto mb-8">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Email Address (will pre-fill Stripe checkout)
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setError('');
+          }}
+          placeholder="Enter your email address"
+          className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-blue-400"
+        />
       </div>
 
-      <div className="max-w-4xl mx-auto text-center mt-12 text-sm text-gray-400">
-        <p>Prices shown match your Stripe plans. Make sure the following env vars are set:</p>
-        <code className="block bg-black/20 rounded px-3 py-2 mt-3">
-          NEXT_PUBLIC_STRIPE_PRICE_MONTHLY, NEXT_PUBLIC_STRIPE_PRICE_YEARLY, NEXT_PUBLIC_STRIPE_PRICE_LIFETIME
-        </code>
+      {/* Error message */}
+      {error && (
+        <div className="max-w-md mx-auto mb-6 p-3 bg-red-500/20 border border-red-400/30 rounded text-red-400 text-sm flex items-center">
+          <span className="mr-2">⚠️</span>
+          {error}
+        </div>
+      )}
+
+      {/* Plan selection */}
+      <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-8">
+        {Object.entries(plans).map(([key, plan]) => (
+          <div
+            key={key}
+            onClick={() => setSelectedPlan(key as any)}
+            className={`cursor-pointer bg-white/6 backdrop-blur-lg border-2 rounded-2xl p-8 transition-all hover:scale-105 ${
+              selectedPlan === key
+                ? 'border-blue-500 bg-blue-500/20 shadow-lg shadow-blue-500/25'
+                : 'border-white/12 hover:border-white/25'
+            }`}
+          >
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold mb-2 capitalize">BookfoldAR Pro — {key}</h2>
+              <div className="text-3xl font-bold mb-1">{plan.price}</div>
+              <div className="text-gray-400 text-sm mb-4">{plan.period}</div>
+              
+              {plan.savings && (
+                <div className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-4 ${
+                  key === 'yearly' ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'
+                }`}>
+                  {plan.savings}
+                </div>
+              )}
+              
+              <p className="text-gray-300 text-sm mb-4">{plan.description}</p>
+
+              <ul className="text-sm text-gray-300 space-y-2 mb-6 text-left">
+                <li>• AR precision folding</li>
+                <li>• Voice control</li>
+                <li>• PDF import & control panel</li>
+                {key !== 'monthly' && <li>• Priority updates</li>}
+                {key === 'lifetime' && <li>• All future updates included</li>}
+              </ul>
+
+              {selectedPlan === key && (
+                <div className="text-blue-400 text-sm font-semibold">
+                  ✅ Selected
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Subscribe button */}
+      <div className="text-center">
+        <button
+          onClick={handleSubscribe}
+          className="bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg font-semibold text-lg text-white transition-colors"
+        >
+          Subscribe {plans[selectedPlan].price}
+        </button>
+        
+        <div className="mt-4 text-sm text-gray-400">
+          <p className="mb-1">✅ Secure payment via Stripe</p>
+          <p>✅ Cancel anytime • ✅ No hidden fees</p>
+        </div>
+
+        <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-400/20 max-w-2xl mx-auto">
+          <p className="text-xs text-blue-300">
+            💡 <strong>How it works:</strong> Click "Subscribe" to go to Stripe's secure checkout. 
+            After payment, you'll be redirected back here with full access.
+          </p>
+        </div>
       </div>
     </main>
   );
