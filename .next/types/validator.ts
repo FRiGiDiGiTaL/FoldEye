@@ -64,6 +64,24 @@ type ApiRouteConfig = {
   handler satisfies PagesPageConfig
 }
 
+// Validate ../pages/api/billing-portal.ts
+{
+  const handler = {} as typeof import("../pages/api/billing-portal.js")
+  handler satisfies ApiRouteConfig
+}
+
+// Validate ../pages/api/check-subscription.ts
+{
+  const handler = {} as typeof import("../pages/api/check-subscription.js")
+  handler satisfies ApiRouteConfig
+}
+
+// Validate ../pages/api/stripe/webhook.ts
+{
+  const handler = {} as typeof import("../pages/api/stripe/webhook.js")
+  handler satisfies ApiRouteConfig
+}
+
 // Validate ../pages/api/subscribe.ts
 {
   const handler = {} as typeof import("../pages/api/subscribe.js")
@@ -73,6 +91,12 @@ type ApiRouteConfig = {
 // Validate ../pages/api/subscription.ts
 {
   const handler = {} as typeof import("../pages/api/subscription.js")
+  handler satisfies ApiRouteConfig
+}
+
+// Validate ../pages/api/verify-session.ts
+{
+  const handler = {} as typeof import("../pages/api/verify-session.js")
   handler satisfies ApiRouteConfig
 }
 

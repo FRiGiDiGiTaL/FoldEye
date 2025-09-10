@@ -1,4 +1,4 @@
-// pages/index.tsx - Enhanced Original Landing Page
+// pages/index.tsx - Enhanced Landing Page with Database-Backed Auth
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +9,7 @@ export default function LandingPage() {
   const router = useRouter();
   const [userStatus, setUserStatus] = useState<'loading' | 'new' | 'trial' | 'subscribed' | 'expired'>('loading');
   const [isClient, setIsClient] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
@@ -17,25 +18,55 @@ export default function LandingPage() {
   useEffect(() => {
     if (!isClient) return;
 
-    const checkUserStatus = () => {
+    const checkUserStatus = async () => {
       try {
-        // Check subscription first
+        // First check localStorage for immediate access
         const subscription = localStorage.getItem("bookfoldar_subscription");
+        const trial = localStorage.getItem("bookfoldar_trial");
+        
+        let emailToCheck = '';
+
+        // Check subscription first
         if (subscription) {
           const subData = JSON.parse(subscription);
-          if (subData.active || 
-              (subData.status === 'active' && subData.expiryDate > Date.now()) ||
-              subData.plan) {
+          if (subData.active || subData.status === 'active' || subData.paidViaStripe) {
             setUserStatus('subscribed');
             return;
           }
         }
 
         // Check trial
-        const trial = localStorage.getItem("bookfoldar_trial");
         if (trial) {
           const trialData = JSON.parse(trial);
+          emailToCheck = trialData.email || '';
+          setUserEmail(emailToCheck);
+          
           if (trialData.expiryDate && Date.now() < trialData.expiryDate) {
+            // Local trial is still active, but verify with database
+            if (emailToCheck) {
+              try {
+                const response = await fetch('/api/check-subscription', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: emailToCheck })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                  if (data.status.hasActiveSubscription) {
+                    setUserStatus('subscribed');
+                    return;
+                  } else if (data.status.trialActive && data.status.trialDaysRemaining > 0) {
+                    setUserStatus('trial');
+                    return;
+                  }
+                }
+              } catch (error) {
+                console.error('Error checking subscription status:', error);
+              }
+            }
+            
+            // Fallback to local trial data
             setUserStatus('trial');
             return;
           } else {
@@ -90,7 +121,7 @@ export default function LandingPage() {
       case 'subscribed':
         return (
           <div className="bg-green-500/20 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-green-400/30 mb-8">
-            <h3 className="text-2xl font-semibold mb-4 text-green-300">🎉 Welcome Back, Subscriber!</h3>
+            <h3 className="text-2xl font-semibold mb-4 text-green-300">🎉 Welcome Back, Pro User!</h3>
             <p className="text-sm text-gray-200 mb-6">
               You have full access to all BookfoldAR features. Continue your precision folding journey.
             </p>
@@ -99,11 +130,37 @@ export default function LandingPage() {
               className="w-full bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center justify-center"
             >
               <span className="mr-2">🚀</span>
-              Launch BookfoldAR
+              Launch BookfoldAR Pro
             </button>
             <div className="mt-4 text-xs text-gray-300 text-center">
               Full access • All features unlocked • AR precision folding
             </div>
+            
+            {/* Billing management */}
+            {userEmail && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/billing-portal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: userEmail })
+                      });
+                      const data = await response.json();
+                      if (data.success && data.url) {
+                        window.location.href = data.url;
+                      }
+                    } catch (error) {
+                      console.error('Error accessing billing portal:', error);
+                    }
+                  }}
+                  className="text-blue-300 hover:text-blue-200 text-sm underline"
+                >
+                  Manage Subscription & Billing
+                </button>
+              </div>
+            )}
           </div>
         );
 
@@ -129,7 +186,7 @@ export default function LandingPage() {
               href="/paywall" 
               className="block w-full text-center bg-green-600/20 hover:bg-green-600/30 px-4 py-2 rounded text-green-300 text-sm transition-colors"
             >
-              Upgrade to Premium
+              Upgrade to Pro
             </Link>
           </div>
         );
@@ -149,7 +206,7 @@ export default function LandingPage() {
               View Subscription Plans
             </Link>
             <div className="mt-4 text-xs text-gray-300 text-center">
-              Choose from Monthly • Yearly • Lifetime plans
+              Monthly $5.99 • Yearly $19.99 • Lifetime $59.99
             </div>
           </div>
         );
@@ -202,7 +259,7 @@ export default function LandingPage() {
         {/* Quick access note for returning users */}
         {isClient && userStatus !== 'new' && (
           <div className="mt-8 text-sm text-gray-300">
-            💡 <strong>Tip:</strong> You can also bookmark <code className="bg-black/20 px-2 py-1 rounded">yoursite.com/app</code> for direct access
+            💡 <strong>Tip:</strong> You can bookmark <code className="bg-black/20 px-2 py-1 rounded">bookfoldar.com/app</code> for direct access
           </div>
         )}
       </section>

@@ -25,10 +25,10 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/paywall": [
+    "/app": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/paywall.js"
+      "static/chunks/pages/app.js"
     ]
   },
   "ampFirstPages": []
