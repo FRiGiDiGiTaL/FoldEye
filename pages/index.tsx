@@ -1,9 +1,27 @@
-// pages/index.tsx - Enhanced Landing Page with Trial + Subscribe Flow
+// pages/index.tsx - Fixed Landing Page with proper trial flow
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { TrialSignup } from "../components/TrialSignup";
+
+interface LocalTrialData {
+  email: string;
+  startDate: number;
+  expiryDate: number;
+  trialDays: number;
+  status: string;
+}
+
+interface LocalSubscriptionData {
+  plan?: string;
+  status?: string;
+  active?: boolean;
+  startDate?: number;
+  source?: string;
+  email?: string;
+  paidViaStripe?: boolean;
+}
 
 export default function LandingPage() {
   const router = useRouter();
@@ -12,82 +30,107 @@ export default function LandingPage() {
   >("loading");
   const [isClient, setIsClient] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState<number>(0);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
+  const getLocalTrialData = (): LocalTrialData | null => {
+    try {
+      const trial = localStorage.getItem("bookfoldar_trial");
+      if (trial) {
+        return JSON.parse(trial);
+      }
+    } catch (error) {
+      console.error("Error parsing trial data:", error);
+      localStorage.removeItem("bookfoldar_trial");
+    }
+    return null;
+  };
+
+  const getLocalSubscriptionData = (): LocalSubscriptionData | null => {
+    try {
+      const subscription = localStorage.getItem("bookfoldar_subscription");
+      if (subscription) {
+        return JSON.parse(subscription);
+      }
+    } catch (error) {
+      console.error("Error parsing subscription data:", error);
+      localStorage.removeItem("bookfoldar_subscription");
+    }
+    return null;
+  };
+
+  const calculateTrialDaysRemaining = (trialData: LocalTrialData): number => {
+    const remaining = Math.ceil((trialData.expiryDate - Date.now()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, remaining);
+  };
+
+  const isTrialActive = (trialData: LocalTrialData): boolean => {
+    return Date.now() < trialData.expiryDate && trialData.status === 'active';
+  };
+
+  const checkUserStatus = async () => {
     if (!isClient) return;
 
-    const checkUserStatus = async () => {
-      try {
-        const subscription = localStorage.getItem("bookfoldar_subscription");
-        const trial = localStorage.getItem("bookfoldar_trial");
+    try {
+      console.log('🔄 Checking user status...');
 
-        let emailToCheck = "";
-
-        if (subscription) {
-          const subData = JSON.parse(subscription);
-          if (
-            subData.active ||
-            subData.status === "active" ||
-            subData.paidViaStripe
-          ) {
-            setUserStatus("subscribed");
-            return;
-          }
+      // Check for subscription first
+      const subscriptionData = getLocalSubscriptionData();
+      if (subscriptionData) {
+        console.log('💳 Found subscription data:', subscriptionData);
+        
+        if (subscriptionData.active || 
+            subscriptionData.status === "active" || 
+            subscriptionData.paidViaStripe) {
+          console.log('✅ User has active subscription');
+          setUserEmail(subscriptionData.email || "");
+          setUserStatus("subscribed");
+          return;
         }
-
-        if (trial) {
-          const trialData = JSON.parse(trial);
-          emailToCheck = trialData.email || "";
-          setUserEmail(emailToCheck);
-
-          if (trialData.expiryDate && Date.now() < trialData.expiryDate) {
-            if (emailToCheck) {
-              try {
-                const response = await fetch("/api/check-subscription", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: emailToCheck }),
-                });
-                const data = await response.json();
-                if (data.success) {
-                  if (data.status.hasActiveSubscription) {
-                    setUserStatus("subscribed");
-                    return;
-                  } else if (
-                    data.status.trialActive &&
-                    data.status.trialDaysRemaining > 0
-                  ) {
-                    setUserStatus("trial");
-                    return;
-                  }
-                }
-              } catch (error) {
-                console.error("Error checking subscription status:", error);
-              }
-            }
-            setUserStatus("trial");
-            return;
-          } else {
-            setUserStatus("expired");
-            return;
-          }
-        }
-
-        setUserStatus("new");
-      } catch (error) {
-        console.error("Error checking user status:", error);
-        setUserStatus("new");
       }
-    };
 
+      // Check for trial
+      const trialData = getLocalTrialData();
+      if (trialData) {
+        console.log('📋 Found trial data:', {
+          email: trialData.email,
+          expiryDate: new Date(trialData.expiryDate).toISOString(),
+          status: trialData.status
+        });
+
+        setUserEmail(trialData.email || "");
+        const daysRemaining = calculateTrialDaysRemaining(trialData);
+        setTrialDaysRemaining(daysRemaining);
+
+        if (isTrialActive(trialData)) {
+          console.log('✅ Trial is active -', daysRemaining, 'days remaining');
+          setUserStatus("trial");
+          return;
+        } else {
+          console.log('❌ Trial has expired');
+          setUserStatus("expired");
+          return;
+        }
+      }
+
+      console.log('👤 New user - no trial or subscription found');
+      setUserStatus("new");
+
+    } catch (error) {
+      console.error("Error checking user status:", error);
+      setUserStatus("new");
+    }
+  };
+
+  useEffect(() => {
     checkUserStatus();
   }, [isClient]);
 
   const handleAccessApp = () => {
+    console.log('🚀 Accessing app...');
     router.push("/app");
   };
 
@@ -96,37 +139,8 @@ export default function LandingPage() {
       alert("Please start the trial first to associate your email.");
       return;
     }
-
-    try {
-      const response = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail }),
-      });
-
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-    }
-  };
-
-  const getRemainingTrialDays = () => {
-    try {
-      const trial = localStorage.getItem("bookfoldar_trial");
-      if (trial) {
-        const trialData = JSON.parse(trial);
-        const remaining = Math.ceil(
-          (trialData.expiryDate - Date.now()) / (1000 * 60 * 60 * 24)
-        );
-        return Math.max(0, remaining);
-      }
-    } catch (error) {
-      console.error("Error calculating trial days:", error);
-    }
-    return 0;
+    console.log('💳 Redirecting to paywall for subscription...');
+    router.push(`/paywall?email=${encodeURIComponent(userEmail)}`);
   };
 
   const renderTrialSignupSection = () => {
@@ -162,7 +176,6 @@ export default function LandingPage() {
         );
 
       case "trial":
-        const remainingDays = getRemainingTrialDays();
         return (
           <div className="bg-blue-500/20 backdrop-blur-lg rounded-xl p-8 max-w-lg mx-auto border border-blue-400/30 mb-8">
             <h3 className="text-2xl font-semibold mb-4 text-blue-300">
@@ -171,15 +184,22 @@ export default function LandingPage() {
             <p className="text-sm text-gray-200 mb-2">
               You have{" "}
               <span className="font-bold text-blue-300">
-                {remainingDays} days remaining
+                {trialDaysRemaining} days remaining
               </span>{" "}
               in your free trial.
             </p>
+            <div className="mb-4 p-3 bg-blue-500/10 rounded-lg border border-blue-400/20">
+              <p className="text-xs text-blue-200">
+                ✅ Trial for: {userEmail}<br />
+                ✅ Full access to all features<br />
+                ✅ No credit card required
+              </p>
+            </div>
             <button
               onClick={handleAccessApp}
               className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors mb-3"
             >
-              📱 Continue Trial
+              📱 Continue Using BookfoldAR
             </button>
             <button
               onClick={handleSubscribe}
@@ -196,9 +216,16 @@ export default function LandingPage() {
             <h3 className="text-2xl font-semibold mb-4 text-yellow-300">
               ⏰ Trial Expired
             </h3>
-            <p className="text-sm text-gray-200 mb-6">
-              Your 7-day trial has ended. Subscribe to continue using BookfoldAR.
+            <p className="text-sm text-gray-200 mb-4">
+              Your 7-day trial has ended. Subscribe to continue using BookfoldAR's amazing features!
             </p>
+            <div className="mb-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-400/20">
+              <p className="text-xs text-yellow-200">
+                📧 Account: {userEmail}<br />
+                ⏰ Trial ended<br />
+                💳 Subscribe to restore access
+              </p>
+            </div>
             <button
               onClick={handleSubscribe}
               className="block w-full text-center bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold text-white transition-colors"
@@ -215,7 +242,7 @@ export default function LandingPage() {
               🚀 Start Your 7-Day Free Trial
             </h3>
             <p className="text-sm text-gray-200 mb-6">
-              Full access to all AR features. No restrictions.
+              Full access to all AR features. No restrictions. No credit card required.
             </p>
             <TrialSignup />
           </div>
@@ -254,6 +281,7 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
         {/* Step 2 */}
         <div className="flex flex-col md:flex-row-reverse items-center gap-10">
           <div className="md:w-1/2">
@@ -275,6 +303,7 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
         {/* Step 3 */}
         <div className="flex flex-col md:flex-row items-center gap-10">
           <div className="md:w-1/2">
@@ -293,6 +322,7 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
         {/* Step 4 */}
         <div className="flex flex-col md:flex-row-reverse items-center gap-10">
           <div className="md:w-1/2">
@@ -313,6 +343,7 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
         {/* Step 5 */}
         <div className="flex flex-col md:flex-row items-center gap-10">
           <div className="md:w-1/2">
@@ -331,6 +362,7 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
         {/* Step 6 */}
         <div className="flex flex-col md:flex-row-reverse items-center gap-10">
           <div className="md:w-1/2">
@@ -378,7 +410,7 @@ export default function LandingPage() {
           </h2>
           <p className="max-w-3xl mx-auto text-xl text-gray-100 mb-8">
             {userStatus === "trial"
-              ? `You have ${getRemainingTrialDays()} days left. Upgrade anytime to keep going.`
+              ? `You have ${trialDaysRemaining} days left. Upgrade anytime to keep going.`
               : "Subscribe now to unlock all features again."}
           </p>
           <div className="flex justify-center">
