@@ -7,7 +7,7 @@ interface VerifySessionResponse {
   error?: string;
   session?: {
     id: string;
-    status: string;
+    status: string | null; // Update the type to allow null values
     payment_status: string;
     customer_email?: string;
     mode: string;
@@ -61,7 +61,7 @@ export default async function handler(
       paid,
       session: {
         id: session.id,
-        status: session.status,
+        status: session.status ?? '', // Add a null coalescing operator to provide a default value
         payment_status: session.payment_status,
         customer_email: session.customer_email || undefined,
         mode: session.mode

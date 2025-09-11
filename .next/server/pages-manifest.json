@@ -2,8 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/app": "pages/app.js",
   "/": "pages/index.js",
-  "/paywall": "pages/paywall.js",
+  "/app": "pages/app.js",
   "/api/check-subscription": "pages/api/check-subscription.js"
 }
