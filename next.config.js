@@ -2,10 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable experimental features for better performance
-  experimental: {
-    optimizeCss: true,
-  },
+  // Removed experimental optimizeCss that required critters
+  // experimental: {
+  //   optimizeCss: true,
+  // },
 
   // Image optimization (no domains, just remotePatterns)
   images: {
