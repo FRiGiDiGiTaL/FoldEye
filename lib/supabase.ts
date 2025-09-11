@@ -71,8 +71,8 @@ export interface StripeEvent {
 
 export interface UserSubscriptionStatus {
   has_active_subscription: boolean;
-  subscription_status: string;
-  plan_type: string;
+  subscription_status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired' | 'none' | 'error';
+  plan_type: 'pro' | 'premium' | 'none';
   trial_active: boolean;
   trial_days_remaining: number;
 }

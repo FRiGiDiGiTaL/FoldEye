@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
 import Head from "next/head";
+import { TrialGuard } from "@/components/TrialGuard";
 
-// Import the main App component from the root (disable SSR)
-const MainApp = dynamic(() => import("../App"), {
+// Import the main App component from MainApp.tsx in the root directory
+const MainApp = dynamic(() => import("../MainApp"), {
   ssr: false,
   loading: () => (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
@@ -18,40 +19,15 @@ const MainApp = dynamic(() => import("../App"), {
 });
 
 export default function AppPage() {
-  const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
-
-  useEffect(() => {
-    // Simple check for trial
-    const trial = localStorage.getItem("bookfoldar_trial");
-    if (trial) {
-      try {
-        const trialData = JSON.parse(trial);
-        if (trialData.expiryDate && Date.now() < trialData.expiryDate) {
-          setAuthorized(true);
-          return;
-        }
-      } catch {}
-    }
-
-    // No valid trial → redirect to landing page
-    router.replace("/");
-  }, [router]);
-
-  if (!authorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <p>Checking trial access...</p>
-      </div>
-    );
-  }
-
   return (
     <>
       <Head>
         <title>BookfoldAR App</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <MainApp />
+      <TrialGuard>
+        <MainApp />
+      </TrialGuard>
     </>
   );
 }

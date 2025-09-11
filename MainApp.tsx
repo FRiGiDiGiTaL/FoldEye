@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { PageData, CalibrationData, Transform, MarkNavigation } from "./types";
-import { TrialGuard } from "./components/TrialGuard"; // Import TrialGuard
 
 // Dynamically import client-only components to prevent SSR issues
 const ControlPanel = dynamic(() => import("./components/ControlPanel").then(mod => ({ default: mod.ControlPanel })), {
@@ -89,7 +88,7 @@ const parseInstructions = (text: string): string[] => {
   return newInstructionsArray;
 };
 
-const AppContent: React.FC = () => {
+const MainApp: React.FC = () => {
   const [isClient, setIsClient] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>(
@@ -350,12 +349,4 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <TrialGuard>
-      <AppContent />
-    </TrialGuard>
-  );
-};
-
-export default App;
+export default MainApp;
