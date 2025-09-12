@@ -3,6 +3,6 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/app": "pages/app.js",
-  "/api/check-subscription": "pages/api/check-subscription.js"
+  "/api/check-subscription": "pages/api/check-subscription.js",
+  "/app": "pages/app.js"
 }

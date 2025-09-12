@@ -43,15 +43,12 @@ export const CameraView: React.FC<CameraViewProps> = ({
   triggerParticles = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const zoomVideoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [debugInfoCollapsed, setDebugInfoCollapsed] = useState<boolean>(false);
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('prompt');
-  const [showZoomWindow, setShowZoomWindow] = useState(false);
-  const [zoomWindowPosition, setZoomWindowPosition] = useState({ x: 0, y: 0 });
 
   // Calculate first and last marked page indices for navigation
   const firstMarkedPageIndex = pageData.parsedInstructions.findIndex(p => !!p);
@@ -189,75 +186,12 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   const videoSize = calculateVideoSize();
 
-  // Calculate zoom window properties for single mark mode
-  const calculateZoomWindow = useCallback(() => {
-    if (!calibrationData.pixelsPerCm || marksCm.length === 0 || markNavigation.showAllMarks) {
-      return null;
-    }
-
-    const currentMark = marksCm[markNavigation.currentMarkIndex];
-    if (currentMark < pageData.paddingTopCm || currentMark > (pageData.heightCm - pageData.paddingBottomCm)) {
-      return null;
-    }
-
-    // Calculate mark position
-    const relativePosition = currentMark / pageData.heightCm;
-    const bookAreaTop = (videoSize.height - videoSize.bookAreaHeight) / 2;
-    const markYPosition = bookAreaTop + (relativePosition * videoSize.bookAreaHeight);
-
-    // Zoom window dimensions (2x the size of a portion of the main video)
-    const zoomFactor = 2.0;
-    const baseZoomWidth = 120; // Base width of area to zoom
-    const baseZoomHeight = 80; // Base height of area to zoom
-    const zoomWidth = baseZoomWidth * zoomFactor;
-    const zoomHeight = baseZoomHeight * zoomFactor;
-
-    // Calculate source area in the main video (area we're zooming from)
-    const sourceX = Math.max(0, videoSize.width - baseZoomWidth);
-    const sourceY = Math.max(0, Math.min(videoSize.height - baseZoomHeight, markYPosition - baseZoomHeight / 2));
-    const sourceWidth = baseZoomWidth;
-    const sourceHeight = baseZoomHeight;
-
-    // Position zoom window (top-left corner by default, but adjust if needed)
-    let windowX = 20;
-    let windowY = 20;
-    
-    // Avoid overlapping with the debug panel
-    if (windowY < 200) {
-      windowY = 220;
-    }
-
-    return {
-      windowX,
-      windowY,
-      zoomWidth,
-      zoomHeight,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      markYPosition,
-      zoomFactor
-    };
-  }, [calibrationData.pixelsPerCm, marksCm, markNavigation, pageData, videoSize]);
-
-  // Update zoom window visibility and position based on mark navigation
-  useEffect(() => {
-    const zoomData = calculateZoomWindow();
-    if (zoomData && !markNavigation.showAllMarks && marksCm.length > 0) {
-      setShowZoomWindow(true);
-      setZoomWindowPosition({ x: zoomData.windowX, y: zoomData.windowY });
-    } else {
-      setShowZoomWindow(false);
-    }
-  }, [calculateZoomWindow, markNavigation.showAllMarks, marksCm.length]);
-
   // Check permissions on component mount
   useEffect(() => {
     checkCameraPermission();
   }, [checkCameraPermission]);
 
-  // Set up camera for both main video and zoom video
+  // Set up camera
   useEffect(() => {
     if (isCameraActive) {
       setVideoError(null);
@@ -278,7 +212,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               addDebugLog(`Display: ${videoSize.width}x${videoSize.height}`);
               addDebugLog(`Book Area: ${videoSize.width}x${videoSize.bookAreaHeight}`);
               setVideoReady(true);
-              setStatusMessage("✨ Enhanced AR Camera ready! Voice control, visual effects, and zoom window active.");
+              setStatusMessage("✨ Enhanced AR Camera ready! Voice control and visual effects active.");
             };
             videoRef.current.onerror = (e) => {
               console.error('Main video error:', e);
@@ -286,36 +220,23 @@ export const CameraView: React.FC<CameraViewProps> = ({
               addDebugLog('❌ Video playback error');
             };
           }
-
-          // Set up zoom video with the same stream
-          if (zoomVideoRef.current) {
-            addDebugLog('✓ Setting stream to zoom video element');
-            zoomVideoRef.current.srcObject = stream;
-          }
         })
         .catch(err => {
           console.error("Camera error:", err);
           // Error handling is done in requestCameraPermission
         });
     } else {
-      // Clean up both video streams
+      // Clean up video stream
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
         videoRef.current.srcObject = null;
-      }
-      if (zoomVideoRef.current && zoomVideoRef.current.srcObject) {
-        zoomVideoRef.current.srcObject = null;
       }
       setVideoReady(false);
       setVideoError(null);
       setDebugLogs([]);
       setPermissionStatus('prompt');
-      setShowZoomWindow(false);
     }
   }, [isCameraActive, setStatusMessage, videoSize.width, videoSize.height, videoSize.bookAreaHeight, requestCameraPermission]);
-
-  const zoomData = calculateZoomWindow();
-// This continues from Part 1 - add this after the zoomData calculation
 
   return (
     <div
@@ -368,12 +289,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
               {calibrationData.pixelsPerCm && (
                 <div className="text-cyan-400">🎯 Cal: {calibrationData.pixelsPerCm.toFixed(2)} px/cm</div>
               )}
-              <div className="flex items-center">
-                🔍 Zoom: 
-                <span className={`ml-1 font-semibold ${showZoomWindow ? 'text-purple-400' : 'text-gray-400'}`}>
-                  {showZoomWindow ? 'ACTIVE' : 'OFF'}
-                </span>
-              </div>
               <div className="text-purple-400">✨ Effects: Active</div>
               <div className="text-green-400">🎤 Voice: Available</div>
               {videoError && <div className="text-red-300">❌ Error: {videoError}</div>}
@@ -422,79 +337,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
               />
             )}
           </div>
-
-          {/* Zoom Window - Only show in single mark mode */}
-          {showZoomWindow && zoomData && videoReady && (
-            <div 
-              className="absolute z-40 pointer-events-none"
-              style={{ 
-                left: `${zoomData.windowX}px`, 
-                top: `${zoomData.windowY}px`,
-                width: `${zoomData.zoomWidth}px`,
-                height: `${zoomData.zoomHeight}px`
-              }}
-            >
-              <div className="glass-card rounded-xl overflow-hidden border-2 border-purple-500/70 shadow-2xl backdrop-blur-lg">
-                <div className="glass-panel-dark px-3 py-2 border-b border-purple-400/30">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-xs text-purple-300 font-semibold">
-                      <span className="animate-pulse mr-1">🔍</span>
-                      Mark {markNavigation.currentMarkIndex + 1} Zoom (2x)
-                    </div>
-                    <div className="text-xs text-yellow-300 font-mono">
-                      {marksCm[markNavigation.currentMarkIndex]?.toFixed(1)}cm
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <video
-                    ref={zoomVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="bg-gray-700 object-cover"
-                    style={{
-                      width: `${zoomData.zoomWidth}px`,
-                      height: `${zoomData.zoomHeight}px`,
-                      objectPosition: `-${zoomData.sourceX * zoomData.zoomFactor}px -${zoomData.sourceY * zoomData.zoomFactor}px`,
-                      transform: `scale(${zoomData.zoomFactor})`,
-                      transformOrigin: 'top left'
-                    }}
-                  />
-                  
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="relative">
-                      <div className="absolute w-full h-0.5 bg-yellow-400 shadow-lg animate-pulse"
-                           style={{ 
-                             left: `-${zoomData.zoomWidth/2}px`,
-                             top: '0px',
-                             width: `${zoomData.zoomWidth}px`
-                           }}>
-                      </div>
-                      <div className="absolute w-0.5 bg-yellow-400 shadow-lg animate-pulse"
-                           style={{ 
-                             left: '0px',
-                             top: `-${zoomData.zoomHeight/2}px`,
-                             height: `${zoomData.zoomHeight}px`
-                           }}>
-                      </div>
-                      <div className="absolute w-2 h-2 bg-yellow-400 rounded-full -translate-x-1 -translate-y-1 animate-pulse shadow-lg"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <div className="glass-card px-2 py-1 rounded text-xs text-center text-purple-200 border border-purple-400/30">
-                      <div className="flex items-center justify-center">
-                        <span className="animate-bounce mr-1">📏</span>
-                        Align book edge with crosshair
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
           
           {(!videoReady && !videoError) && (
             <div className="absolute inset-0 flex items-center justify-center glass-panel rounded-lg">
@@ -506,7 +348,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 <p className="text-lg font-medium mb-2">
                   {permissionStatus === 'checking' ? '🔒 Requesting camera permission...' :
                    permissionStatus === 'prompt' ? '📷 Click to request camera access' :
-                   '✨ Starting enhanced AR camera with zoom...'}
+                   '✨ Starting enhanced AR camera...'}
                 </p>
                 <div className="flex justify-center space-x-1">
                   {[...Array(3)].map((_, i) => (
@@ -570,20 +412,14 @@ export const CameraView: React.FC<CameraViewProps> = ({
           {!markNavigation.showAllMarks && (
             <div className="absolute top-4 right-4 glass-card px-4 py-3 rounded-lg text-sm pointer-events-none z-10 border border-yellow-400/30">
               <div className="flex items-center space-x-2">
-                <div className="text-yellow-400 animate-pulse">📏</div>
+                <div className="text-yellow-400 animate-pulse">🎯</div>
                 <div className="text-white font-semibold">
                   Mark {markNavigation.currentMarkIndex + 1}/{marksCm.length}
                 </div>
-                {showZoomWindow && (
-                  <div className="text-purple-400 animate-pulse">🔍</div>
-                )}
               </div>
               <div className="text-xs text-gray-300 mt-1 flex items-center">
                 <span className="animate-bounce mr-1">🎤</span>
-                Use voice or controls to navigate
-                {showZoomWindow && (
-                  <span className="text-purple-300 ml-2">• Zoom window active</span>
-                )}
+                Use Up/Down to navigate marks
               </div>
             </div>
           )}
@@ -595,17 +431,11 @@ export const CameraView: React.FC<CameraViewProps> = ({
                   <div className="text-3xl font-bold text-blue-300 flex items-center justify-center">
                     <span className="animate-pulse mr-2">📖</span>
                     Page {pageData.currentPage + 1}
-                    {showZoomWindow && (
-                      <span className="text-purple-400 animate-pulse ml-2">🔍</span>
-                    )}
                   </div>
                   {pageData.parsedInstructions[pageData.currentPage] && (
                     <div className="text-xs text-green-400 mt-2 flex items-center justify-center">
                       <span className="animate-bounce mr-1">✨</span>
                       {marksCm.length} mark{marksCm.length !== 1 ? 's' : ''} on this page
-                      {showZoomWindow && (
-                        <span className="text-purple-300 ml-2">• Zoom 2x</span>
-                      )}
                     </div>
                   )}
                   {!pageData.parsedInstructions[pageData.currentPage] && (
@@ -661,9 +491,9 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 <button
                   onClick={() => onMarkNavigation('toggleAll')}
                   className="w-10 h-10 flex items-center justify-center rounded-full glass-card border border-yellow-400/30 text-xs transition-all duration-200 hover:scale-105"
-                  title={markNavigation.showAllMarks ? 'Switch to single mark view with zoom' : 'Show all marks (no zoom)'}
+                  title={markNavigation.showAllMarks ? 'Switch to single mark view' : 'Show all marks'}
                 >
-                  {markNavigation.showAllMarks ? '🎯' : (showZoomWindow ? '🔍' : '✨')}
+                  {markNavigation.showAllMarks ? '🎯' : '✨'}
                 </button>
               </div>
             </div>
@@ -692,72 +522,42 @@ export const CameraView: React.FC<CameraViewProps> = ({
                 if (isActiveMark) {
                   markColor = "#ffff00"; // Yellow for active mark
                   markOpacity = 1.0;
-                  if (showZoomWindow) {
-                    markGlow = "shadow-lg shadow-yellow-400/50";
-                  }
+                  markGlow = "shadow-lg shadow-yellow-400/50";
                 }
                 
                 return (
                   <div key={index} className="absolute right-0" style={{ top: `${yPosition}px` }}>
                     <div 
-                      className={`w-8 h-0.5 -translate-y-0.5 transition-all duration-200 ${markGlow} ${
-                        isActiveMark && showZoomWindow ? 'animate-pulse' : ''
+                      className={`w-8 h-0.5 -translate-y-0.5 transition-all duration-300 ${markGlow} ${
+                        isActiveMark ? 'animate-pulse' : ''
                       }`}
                       style={{ 
                         backgroundColor: markColor,
                         opacity: markOpacity,
-                        boxShadow: showZoomWindow && isActiveMark ? `0 0 10px ${markColor}` : 'none'
+                        boxShadow: isActiveMark ? `0 0 15px ${markColor}, 0 0 25px ${markColor}40` : 'none'
                       }}
                     ></div>
                     
                     {isActiveMark && window.innerWidth >= 768 && (
                       <div 
-                        className={`absolute right-10 top-0 transform -translate-y-1/2 bg-black/80 px-2 py-1 rounded text-xs font-mono font-bold z-10 border border-gray-600 transition-all duration-200 ${
-                          showZoomWindow ? 'scale-110 shadow-lg' : ''
-                        }`}
+                        className="absolute right-10 top-0 transform -translate-y-1/2 bg-black/90 px-3 py-1.5 rounded-lg text-sm font-mono font-bold z-10 border transition-all duration-300 scale-110 shadow-xl"
                         style={{ 
                           color: markColor,
-                          borderColor: showZoomWindow ? markColor : '#4b5563'
+                          borderColor: markColor,
+                          boxShadow: `0 0 20px ${markColor}40`
                         }}
                       >
-                        {markValue.toFixed(1)}cm
-                        {showZoomWindow && (
-                          <span className="ml-2 text-purple-400 animate-pulse">🔍</span>
-                        )}
+                        <div className="flex items-center">
+                          <span>{markValue.toFixed(1)}cm</span>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          Active Mark
+                        </div>
                       </div>
                     )}
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {showZoomWindow && zoomData && videoReady && (
-            <div className="absolute inset-0 pointer-events-none z-30">
-              <svg 
-                className="absolute inset-0 w-full h-full" 
-                style={{ 
-                  width: `${videoSize.width + zoomData.zoomWidth + 100}px`,
-                  height: `${videoSize.height + 100}px`
-                }}
-              >
-                <defs>
-                  <linearGradient id="zoomLine" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#ffff00" stopOpacity="0.8"/>
-                    <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8"/>
-                  </linearGradient>
-                </defs>
-                <line
-                  x1={videoSize.width}
-                  y1={zoomData.markYPosition}
-                  x2={zoomData.windowX}
-                  y2={zoomData.windowY + zoomData.zoomHeight / 2}
-                  stroke="url(#zoomLine)"
-                  strokeWidth="2"
-                  strokeDasharray="5,5"
-                  className="animate-pulse opacity-70"
-                />
-              </svg>
             </div>
           )}
         </div>
@@ -775,8 +575,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
             <p className="text-xl font-semibold mb-2 text-blue-300">Enhanced AR Camera is off</p>
             <p className="text-sm mt-2 text-center mb-4">
               {pageData.heightCm > 0 
-                ? `Ready to show ${pageData.heightCm}cm × ${pageData.widthCm || 'auto'}cm view with AR effects and zoom window`
-                : 'Enter book dimensions first to enable AR features with zoom'
+                ? `Ready to show ${pageData.heightCm}cm × ${pageData.widthCm || 'auto'}cm view with AR effects`
+                : 'Enter book dimensions first to enable AR features'
               }
             </p>
             
@@ -794,7 +594,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               </div>
               <div className="flex items-center text-purple-400">
                 <span className="animate-spin mr-2">✨</span>
-                <span className="text-sm">AR + Zoom Ready</span>
+                <span className="text-sm">AR Effects Ready</span>
               </div>
             </div>
           </div>
