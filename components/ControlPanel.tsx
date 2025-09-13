@@ -1,3 +1,4 @@
+// components/ControlPanel.tsx - Updated with UserDashboard Integration
 import React, { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import type {
@@ -427,7 +428,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         `
       }} />
 
-      <div className="space-y-3">
+            <div className="space-y-3">
         {/* Book Dimensions */}
         <CollapsibleSection
           stepNumber={1}
