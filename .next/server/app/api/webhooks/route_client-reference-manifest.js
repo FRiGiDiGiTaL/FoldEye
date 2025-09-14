@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/webhooks/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"C:\\ar-book-folding-assistant\\":[],"C:\\ar-book-folding-assistant\\app\\api\\webhooks\\route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}}

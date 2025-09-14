@@ -1,1 +1,5 @@
-{}
+{
+  "/api/check-access/route": "app/api/check-access/route.js",
+  "/api/create-checkout/route": "app/api/create-checkout/route.js",
+  "/api/webhooks/route": "app/api/webhooks/route.js"
+}

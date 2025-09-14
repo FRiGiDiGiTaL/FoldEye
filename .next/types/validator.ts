@@ -33,68 +33,39 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   OPTIONS?: (request: NextRequest, context: { params: Promise<ParamMap[Route]> }) => Promise<Response | void> | Response | void
 }
 
-type ApiRouteConfig = {
-  default: (req: any, res: any) => Promise<Response | void> | Response | void
-  config?: {
-    api?: {
-      bodyParser?: boolean | { sizeLimit?: string }
-      responseLimit?: string | number | boolean
-      externalResolver?: boolean
-    }
-    runtime?: 'edge' | 'experimental-edge' | 'nodejs' | string // necessary unless config is exported as const
-    maxDuration?: number
-  }
+
+
+
+// Validate ../../app/api/check-access/route.ts
+{
+  const handler = {} as typeof import("../../app/api/check-access/route.js")
+  handler satisfies RouteHandlerConfig<"/api/check-access">
 }
 
-
-
-
-// Validate ../app/api/webhooks/route.ts
+// Validate ../../app/api/create-checkout/route.ts
 {
-  const handler = {} as typeof import("../app/api/webhooks/route.js")
+  const handler = {} as typeof import("../../app/api/create-checkout/route.js")
+  handler satisfies RouteHandlerConfig<"/api/create-checkout">
+}
+
+// Validate ../../app/api/webhooks/route.ts
+{
+  const handler = {} as typeof import("../../app/api/webhooks/route.js")
   handler satisfies RouteHandlerConfig<"/api/webhooks">
 }
 
-// Validate ../pages/_app.tsx
+// Validate ../../pages/app.tsx
 {
-  const handler = {} as typeof import("../pages/_app.js")
+  const handler = {} as typeof import("../../pages/app.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../pages/app.tsx
+// Validate ../../pages/index.tsx
 {
-  const handler = {} as typeof import("../pages/app.js")
+  const handler = {} as typeof import("../../pages/index.js")
   handler satisfies PagesPageConfig
 }
 
-// Validate ../pages/index.tsx
-{
-  const handler = {} as typeof import("../pages/index.js")
-  handler satisfies PagesPageConfig
-}
 
-// Validate ../pages/paywall.tsx
-{
-  const handler = {} as typeof import("../pages/paywall.js")
-  handler satisfies PagesPageConfig
-}
-
-// Validate ../pages/api/check-subscription.ts
-{
-  const handler = {} as typeof import("../pages/api/check-subscription.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/subscribe.ts
-{
-  const handler = {} as typeof import("../pages/api/subscribe.js")
-  handler satisfies ApiRouteConfig
-}
-
-// Validate ../pages/api/verify-session.ts
-{
-  const handler = {} as typeof import("../pages/api/verify-session.js")
-  handler satisfies ApiRouteConfig
-}
 
 

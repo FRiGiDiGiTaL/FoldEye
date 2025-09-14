@@ -1,3 +1,25 @@
 {
-  "pages": {}
+  "pages": {
+    "/api/check-access/route": [
+      "static/chunks/webpack-cc3181ea9c2aa658.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/58-1749d8e712449088.js",
+      "static/chunks/main-app-c1532ef50aa77d54.js",
+      "static/chunks/app/api/check-access/route-ac6e09d3e51fd214.js"
+    ],
+    "/api/create-checkout/route": [
+      "static/chunks/webpack-cc3181ea9c2aa658.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/58-1749d8e712449088.js",
+      "static/chunks/main-app-c1532ef50aa77d54.js",
+      "static/chunks/app/api/create-checkout/route-ac6e09d3e51fd214.js"
+    ],
+    "/api/webhooks/route": [
+      "static/chunks/webpack-cc3181ea9c2aa658.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/58-1749d8e712449088.js",
+      "static/chunks/main-app-c1532ef50aa77d54.js",
+      "static/chunks/app/api/webhooks/route-ac6e09d3e51fd214.js"
+    ]
+  }
 }
